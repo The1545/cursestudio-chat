@@ -14,16 +14,20 @@ body{margin:0;font-family:sans-serif;background:#36393f;color:#dcddde;height:100
 #channels button{background:#202225;color:#dcddde;border:none;padding:8px;margin:3px;border-radius:5px;text-align:left;cursor:pointer;}
 #channels button.active{background:#5865f2;color:white;}
 #users{flex:1;padding:10px;overflow-y:auto;border-top:1px solid #40444b;}
+.userItem{display:flex;align-items:center;margin:3px 0;}
+.userItem span{width:10px;height:10px;border-radius:50%;display:inline-block;margin-right:5px;}
 #mainChat{flex:1;display:flex;flex-direction:column;background:#36393f;}
 #messages{flex:1;padding:10px;overflow-y:auto;}
 .message{margin:5px 0;padding:5px 10px;border-radius:5px;max-width:80%;word-wrap:break-word;}
 .message.you{background:#7289da;color:white;align-self:flex-end;}
 .message.other{background:#40444b;color:white;align-self:flex-start;}
 .message.announcement{background:#faa61a;color:black;font-weight:bold;align-self:center;}
+.message .nick{font-weight:bold;margin-right:5px;}
 #inputArea{display:flex;padding:10px;background:#40444b;}
 #inputArea input[type="text"]{flex:1;padding:10px;border:none;border-radius:5px;margin-right:5px;}
 #inputArea input[type="file"]{margin-right:5px;}
 #inputArea button{padding:10px;border:none;border-radius:5px;background:#5865f2;color:white;cursor:pointer;}
+img.chatImg{max-width:150px;max-height:150px;border-radius:5px;margin-top:5px;}
 </style>
 </head>
 <body>
@@ -56,7 +60,7 @@ body{margin:0;font-family:sans-serif;background:#36393f;color:#dcddde;height:100
 
 <script type="module">
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.4.0/firebase-app.js";
-import { getDatabase, ref, push, onChildAdded, set, get, onValue } from "https://www.gstatic.com/firebasejs/10.4.0/firebase-database.js";
+import { getDatabase, ref, push, onChildAdded, set, get, onValue, onDisconnect } from "https://www.gstatic.com/firebasejs/10.4.0/firebase-database.js";
 import { getStorage, ref as sRef, uploadBytes, getDownloadURL } from "https://www.gstatic.com/firebasejs/10.4.0/firebase-storage.js";
 
 const firebaseConfig = {
@@ -110,6 +114,8 @@ loginBtn.onclick=async()=>{
   if(nick==="The1545") isAdmin=true;
   loginScreen.style.display="none";
   chatScreen.style.display="flex";
+  set(ref(db,'users/'+currentNick+'/online'),true);
+  onDisconnect(ref(db,'users/'+currentNick+'/online')).set(false);
   loadUsers();
   loadMessages();
 };
@@ -119,10 +125,15 @@ function loadUsers(){
   onValue(usersRef,snap=>{
     usersDiv.innerHTML='';
     snap.forEach(u=>{
-      const userDiv = document.createElement('div');
-      userDiv.textContent = u.key;
-      if(u.key==='The1545') userDiv.style.color='#faa61a';
-      usersDiv.appendChild(userDiv);
+      const div = document.createElement('div');
+      div.className='userItem';
+      const status = document.createElement('span');
+      status.style.backgroundColor = u.val().online?'#3ba55c':'#747f8d';
+      const nickSpan = document.createElement('span');
+      nickSpan.textContent = u.key;
+      div.appendChild(status);
+      div.appendChild(nickSpan);
+      usersDiv.appendChild(div);
     });
   });
 }
@@ -133,7 +144,7 @@ function loadMessages(){
     const data = snap.val();
     const msgEl = document.createElement('div');
     msgEl.className='message '+(data.nick===currentNick?'you':(data.nick==='CurseBot'?'announcement':'other'));
-    msgEl.innerHTML=data.text+(data.img?'<br><img src="'+data.img+'" style="max-width:150px;max-height:150px;border-radius:5px;">':'');
+    msgEl.innerHTML='<span class="nick">'+data.nick+':</span>'+data.text+(data.img?'<br><img class="chatImg" src="'+data.img+'">':'');
     messagesDiv.appendChild(msgEl);
     messagesDiv.scrollTop=messagesDiv.scrollHeight;
   });
