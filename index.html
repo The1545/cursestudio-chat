@@ -3,115 +3,127 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>CurseStudio</title>
+    <title>CurseStudio | Premium</title>
     <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
     <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-database.js"></script>
     <style>
         :root { 
             --bg: #36393f; --dark: #2f3136; --v-dark: #202225; --accent: #5865f2; 
             --admin-red: #ff4747; --admin-orange: #ff9f43; --bot-green: #2ecc71;
+            --text-muted: #b9bbbe;
         }
-        * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Segoe UI', Tahoma, sans-serif; }
+        * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Whitney', 'Segoe UI', sans-serif; }
         body { background: var(--bg); color: #dcddde; height: 100vh; display: flex; overflow: hidden; }
-        
-        /* Auth */
+
+        /* General Animations */
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+        .msg { animation: fadeIn 0.3s ease; }
+
+        /* Auth Screen */
         #auth-overlay { position: fixed; inset: 0; background: #2f3136; display: flex; align-items: center; justify-content: center; z-index: 3000; }
-        .auth-box { text-align: center; background: var(--v-dark); padding: 40px; border-radius: 10px; }
-        .auth-box h2 { color: white; margin-bottom: 25px; letter-spacing: -1px; font-size: 28px; }
-        .auth-box input { width: 280px; padding: 12px; background: #36393f; border: 1px solid #111; color: white; border-radius: 5px; margin-bottom: 20px; outline: none; }
+        .auth-box { text-align: center; background: var(--v-dark); padding: 40px; border-radius: 12px; box-shadow: 0 20px 50px rgba(0,0,0,0.5); border: 1px solid #444; }
+        .auth-box h2 { color: white; margin-bottom: 25px; font-size: 32px; letter-spacing: -1.5px; }
+        .auth-box input { width: 300px; padding: 14px; background: #36393f; border: 1px solid #111; color: white; border-radius: 5px; margin-bottom: 20px; outline: none; transition: 0.3s; }
+        .auth-box input:focus { border-color: var(--accent); }
 
         /* Sidebar */
-        #sidebar { width: 260px; background: var(--dark); border-right: 1px solid var(--v-dark); display: none; flex-direction: column; }
-        .side-header { padding: 15px; font-weight: bold; color: white; border-bottom: 1px solid #222; display: flex; justify-content: space-between; align-items: center; }
-        .channel-list { flex: 1; overflow-y: auto; padding: 10px 0; }
-        .channel-btn { padding: 10px 15px; margin: 2px 10px; cursor: pointer; color: #8e9297; border-radius: 4px; display: flex; justify-content: space-between; align-items: center; }
+        #sidebar { width: 280px; background: var(--dark); border-right: 1px solid var(--v-dark); display: none; flex-direction: column; }
+        .side-header { padding: 18px; font-weight: bold; color: white; border-bottom: 1px solid #222; display: flex; justify-content: space-between; align-items: center; background: rgba(0,0,0,0.1); }
+        .channel-list { flex: 1; overflow-y: auto; padding: 15px 0; }
+        .channel-btn { padding: 12px 15px; margin: 2px 10px; cursor: pointer; color: #8e9297; border-radius: 6px; display: flex; justify-content: space-between; align-items: center; transition: 0.2s; }
+        .channel-btn:hover { background: #3c3f44; color: #fff; }
         .channel-btn.active { background: #4f545c; color: #fff; }
-        .edit-btn { cursor: pointer; opacity: 0.6; font-size: 14px; }
-        .edit-btn:hover { opacity: 1; color: var(--accent); }
 
-        /* Main Chat */
-        #main { flex: 1; display: none; flex-direction: column; position: relative; }
-        #messages { flex: 1; overflow-y: auto; padding: 20px; }
-        .msg { margin-bottom: 15px; }
-        .nick { font-weight: bold; margin-right: 8px; }
+        /* Chat Area */
+        #main { flex: 1; display: none; flex-direction: column; position: relative; background: var(--bg); }
+        #messages { flex: 1; overflow-y: auto; padding: 20px 30px; scroll-behavior: smooth; }
+        .msg { margin-bottom: 20px; line-height: 1.5; }
+        .nick { font-weight: 600; margin-right: 10px; font-size: 15px; }
         .nick.kurucu { color: var(--admin-red); }
         .nick.admin-volar { color: var(--admin-orange); }
-        .badge { font-size: 9px; padding: 2px 6px; border-radius: 3px; color: white; margin-right: 8px; font-weight: bold; }
+        .nick.bot { color: var(--bot-green); }
+        .badge { font-size: 10px; padding: 2px 8px; border-radius: 4px; color: white; margin-right: 8px; font-weight: 800; }
+        
+        /* Typing Indicator */
+        #typing-area { height: 24px; padding-left: 20px; font-size: 13px; color: var(--text-muted); font-style: italic; }
+        .dot-typing { display: inline-block; animation: blink 1.4s infinite both; }
+        @keyframes blink { 0%, 80%, 100% { opacity: 0; } 40% { opacity: 1; } }
 
-        /* Fullscreen Button */
-        #fs-btn { position: fixed; bottom: 20px; right: 20px; background: rgba(0,0,0,0.5); color: white; border: none; padding: 10px; border-radius: 50%; width: 45px; height: 45px; cursor: pointer; z-index: 1000; display: flex; align-items: center; justify-content: center; font-size: 20px; transition: 0.3s; }
-        #fs-btn:hover { background: var(--accent); transform: scale(1.1); }
+        /* UI Elements */
+        #fs-btn { position: fixed; bottom: 25px; right: 25px; background: var(--accent); color: white; border: none; width: 50px; height: 50px; border-radius: 50%; cursor: pointer; z-index: 4000; font-size: 22px; box-shadow: 0 4px 15px rgba(0,0,0,0.3); transition: 0.3s; display: flex; align-items: center; justify-content: center; }
+        #fs-btn:hover { transform: scale(1.15); filter: brightness(1.2); }
+
+        .input-wrap { padding: 0 20px 20px 20px; }
+        .inner-input { background: #40444b; border-radius: 10px; padding: 14px 18px; display: flex; align-items: center; }
+        #chat-in { background: transparent; border: none; color: white; flex: 1; outline: none; margin-left: 15px; font-size: 15px; }
+        #chat-in:disabled { opacity: 0.4; cursor: not-allowed; }
+        .chat-img { max-width: 450px; border-radius: 12px; margin-top: 10px; border: 2px solid #2f3136; transition: 0.3s; }
+        .chat-img:hover { transform: scale(1.01); }
 
         /* Modals */
-        #mgmt-modal, #name-modal { display:none; position:fixed; inset:0; background:rgba(0,0,0,0.85); z-index:2000; align-items:center; justify-content:center; }
-        .modal-box { background:var(--dark); padding:30px; border-radius:8px; width:380px; border:1px solid #444; }
-        .modal-box input, .modal-box select { width:100%; padding:10px; background:var(--v-dark); border:1px solid #111; color:white; border-radius:4px; margin-bottom:15px; }
-
-        .input-wrap { padding: 20px; }
-        .inner-input { background: #40444b; border-radius: 8px; padding: 12px; display: flex; align-items: center; }
-        #chat-in { background: transparent; border: none; color: white; flex: 1; outline: none; margin-left: 10px; }
-        .chat-img { max-width: 400px; border-radius: 8px; margin-top: 10px; cursor: pointer; }
+        .modal { display:none; position:fixed; inset:0; background:rgba(0,0,0,0.85); z-index:5000; align-items:center; justify-content:center; backdrop-filter: blur(4px); }
+        .modal-box { background:var(--dark); padding:35px; border-radius:12px; width:400px; animation: fadeIn 0.2s ease-out; }
+        .modal-box h3 { color:white; margin-bottom:20px; }
+        .modal-box input, .modal-box select { width:100%; padding:12px; background:var(--v-dark); border:1px solid #111; color:white; border-radius:6px; margin-bottom:15px; }
     </style>
 </head>
 <body>
+
+<button id="fs-btn" onclick="toggleFullScreen()">⛶</button>
 
 <div id="auth-overlay">
     <div class="auth-box">
         <h2>CurseStudio</h2>
         <input type="text" id="user-nick" placeholder="Kullanıcı adınız..." maxlength="15">
         <br>
-        <button onclick="login()" style="width:280px; padding:12px; background:var(--accent); color:white; border:none; border-radius:5px; font-weight:bold; cursor:pointer">BAĞLAN</button>
+        <button onclick="login()" style="width:300px; padding:15px; background:var(--accent); color:white; border:none; border-radius:6px; font-weight:bold; cursor:pointer; font-size:16px;">BAĞLAN</button>
     </div>
 </div>
 
 <div id="sidebar">
     <div class="side-header">
-        <span id="server-name-display">Yükleniyor...</span>
-        <span id="edit-server-btn" class="edit-btn" onclick="openNameModal()" style="display:none">✎</span>
+        <span id="server-name-display">CurseStudio</span>
+        <span id="edit-server-btn" class="edit-btn" onclick="openNameModal()" style="display:none; cursor:pointer">✎</span>
     </div>
     <div class="channel-list" id="chan-list"></div>
     <div id="admin-tools" style="padding:15px; display:none">
-        <button onclick="openMgmt()" style="width:100%; padding:10px; background:#3ba55c; color:white; border:none; border-radius:4px; cursor:pointer; font-weight:bold">⚙️ Kanal Yönetimi</button>
+        <button onclick="openMgmt()" style="width:100%; padding:12px; background:#3ba55c; color:white; border:none; border-radius:6px; cursor:pointer; font-weight:bold; margin-bottom:10px;">⚙️ Kanal Yönetimi</button>
     </div>
-    <div style="padding:15px; font-size:12px; color:#f04747; cursor:pointer; text-align:center" onclick="location.reload()">Oturumu Kapat</div>
+    <div style="padding:20px; border-top:1px solid #222;">
+        <button onclick="location.reload()" style="width:100%; padding:10px; background:transparent; border:1px solid #ed4245; color:#ed4245; border-radius:6px; cursor:pointer; font-weight:bold; transition:0.3s" onmouseover="this.style.background='#ed4245'; this.style.color='white'" onmouseout="this.style.background='transparent'; this.style.color='#ed4245'">OTURUMU KAPAT</button>
+    </div>
 </div>
 
 <div id="main">
     <div id="messages"></div>
+    <div id="typing-area"></div>
     <div class="input-wrap">
         <div class="inner-input">
-            <label for="f-up" style="cursor:pointer; color:#b9bbbe; font-size:20px">+</label>
+            <label for="f-up" style="cursor:pointer; color:#b9bbbe; font-size:24px">+</label>
             <input type="file" id="f-up" style="display:none" onchange="upFile(this)">
-            <input type="text" id="chat-in" placeholder="Mesaj gönder..." onkeypress="if(event.key==='Enter') send()">
+            <input type="text" id="chat-in" placeholder="Bir mesaj yaz..." onkeypress="if(event.key==='Enter') send()" oninput="handleTyping()">
         </div>
-    </div>
-    <button id="fs-btn" onclick="toggleFullScreen()" title="Tam Ekran">⛶</button>
-</div>
-
-<div id="name-modal">
-    <div class="modal-box">
-        <h3 style="color:white; margin-bottom:15px">Sunucu Adını Düzenle</h3>
-        <input type="text" id="new-server-name" placeholder="Yeni sunucu adı...">
-        <button onclick="updateServerName()" style="background:var(--accent); padding:12px; width:100%; border:none; color:white; border-radius:4px; cursor:pointer; font-weight:bold">GÜNCELLE</button>
-        <button onclick="closeNameModal()" style="margin-top:10px; background:transparent; color:#72767d; border:none; width:100%; cursor:pointer">İptal</button>
     </div>
 </div>
 
-<div id="mgmt-modal">
-    <div class="modal-box">
-        <h3 style="color:white; margin-bottom:15px">Yeni Kanal Oluştur</h3>
-        <input type="text" id="new-chan-name" placeholder="Kanal adı...">
-        <select id="new-chan-type">
-            <option value="public">Herkese Açık</option>
-            <option value="private">Sadece Yetkililer (Kilitli)</option>
-        </select>
-        <button onclick="createChan()" style="background:var(--accent); padding:12px; width:100%; border:none; color:white; border-radius:4px; cursor:pointer; font-weight:bold">OLUŞTUR</button>
-        <div id="delete-zone" style="margin-top:20px; border-top:1px solid #444; padding-top:15px">
-            <button onclick="deleteChan()" style="background:#ed4245; padding:8px; width:100%; border:none; color:white; border-radius:4px; cursor:pointer">KANALI SİL</button>
-        </div>
-        <button onclick="closeMgmt()" style="margin-top:10px; background:transparent; color:#72767d; border:none; width:100%; cursor:pointer">İptal</button>
-    </div>
-</div>
+<div id="name-modal" class="modal"><div class="modal-box">
+    <h3>Sunucu Adını Değiştir</h3>
+    <input type="text" id="new-server-name" placeholder="Yeni isim...">
+    <button onclick="updateServerName()" style="width:100%; padding:12px; background:var(--accent); color:white; border:none; border-radius:6px; cursor:pointer; font-weight:bold">KAYDET</button>
+    <button onclick="closeNameModal()" style="width:100%; background:transparent; color:gray; margin-top:15px; border:none; cursor:pointer">İptal</button>
+</div></div>
+
+<div id="mgmt-modal" class="modal"><div class="modal-box">
+    <h3>Kanal Yönetimi</h3>
+    <input type="text" id="new-chan-name" placeholder="Kanal ismi (örn: galeri)">
+    <select id="new-chan-type">
+        <option value="public">Açık (Herkes yazabilir)</option>
+        <option value="private">Kilitli (Sadece yetkililer yazabilir) 🔒</option>
+    </select>
+    <button onclick="createChan()" style="width:100%; padding:12px; background:var(--accent); color:white; border:none; border-radius:6px; font-weight:bold; cursor:pointer">KANAL OLUŞTUR</button>
+    <button onclick="deleteChan()" style="width:100%; background:#ed4245; color:white; padding:10px; border:none; border-radius:6px; margin-top:15px; cursor:pointer">KANALI KALICI SİL</button>
+    <button onclick="closeMgmt()" style="width:100%; background:transparent; color:gray; margin-top:15px; border:none; cursor:pointer">Kapat</button>
+</div></div>
 
 <script>
 const firebaseConfig = {
@@ -126,28 +138,115 @@ const firebaseConfig = {
 firebase.initializeApp(firebaseConfig);
 const db = firebase.database();
 
-let myNick = "", activeChan = "genel", chanData = {};
+let myNick = "", activeChan = "genel", chanData = {}, typingTimeout;
 const KURUCU = "The1545", ADMIN = "Volar";
 
-// Giriş İşlemi
 function login() {
     myNick = document.getElementById('user-nick').value.trim();
     if(!myNick) return;
     document.getElementById('auth-overlay').style.display = "none";
     document.getElementById('sidebar').style.display = "flex";
     document.getElementById('main').style.display = "flex";
-    
     if(myNick === KURUCU) {
         document.getElementById('admin-tools').style.display = "block";
         document.getElementById('edit-server-btn').style.display = "inline";
     }
     
-    setupDefaultChannels();
+    // Varsayılan kanalları hazırla
+    db.ref('channels/genel').once('value', s => { if(!s.exists()) db.ref('channels/genel').set({type:'public'}); });
+    db.ref('channels/duyurular').once('value', s => { if(!s.exists()) db.ref('channels/duyurular').set({type:'private'}); });
+    
     listenServerName();
+    loadChannels();
+    switchChan('genel');
+    listenTyping();
+}
+
+// "Yazıyor..." Mantığı
+function handleTyping() {
+    db.ref('typing/' + activeChan + '/' + myNick).set(true);
+    clearTimeout(typingTimeout);
+    typingTimeout = setTimeout(() => {
+        db.ref('typing/' + activeChan + '/' + myNick).remove();
+    }, 2000);
+}
+
+function listenTyping() {
+    db.ref('typing').on('value', snap => {
+        const area = document.getElementById('typing-area');
+        const data = snap.val() ? snap.val()[activeChan] : null;
+        if(data) {
+            const typers = Object.keys(data).filter(n => n !== myNick);
+            if(typers.length > 0) {
+                area.innerHTML = `${typers.join(', ')} yazıyor<span class="dot-typing">...</span>`;
+                return;
+            }
+        }
+        area.innerHTML = "";
+    });
+}
+
+function switchChan(id) {
+    db.ref('msgs/' + activeChan).off();
+    activeChan = id;
+    document.getElementById('messages').innerHTML = "";
+    
+    const isPrivate = chanData[id]?.type === "private";
+    const hasAccess = (myNick === KURUCU || myNick === ADMIN);
+    
+    const input = document.getElementById('chat-in');
+    // HERKES BAKABİLİR: kilitli kanallarda sadece yazma engellenir
+    if(isPrivate && !hasAccess) {
+        input.disabled = true;
+        input.placeholder = "Bu kanalda sadece yetkililer mesaj gönderebilir.";
+    } else {
+        input.disabled = false;
+        input.placeholder = "#" + id + " kanalına mesaj gönder...";
+    }
+
+    db.ref('msgs/' + id).on('child_added', snap => render(snap.val()));
+    db.ref('msgs/' + id).on('child_removed', () => document.getElementById('messages').innerHTML = "");
     loadChannels();
 }
 
-// Sunucu Adını Veritabanından Dinle
+function send(img = null) {
+    const input = document.getElementById('chat-in');
+    const val = input.value.trim();
+    if(!val && !img) return;
+
+    if(val === "/clear" && (myNick === KURUCU || myNick === ADMIN)) {
+        db.ref('msgs/' + activeChan).remove().then(() => {
+            db.ref('msgs/' + activeChan).push({n: "CurseBot", m: `⚠️ #${activeChan} kanalı bir yetkili tarafından temizlendi.`, t: Date.now(), isBot: true});
+        });
+        input.value = ""; return;
+    }
+
+    db.ref('msgs/' + activeChan).push({ n: myNick, m: val, img: img, t: Date.now() });
+    db.ref('typing/' + activeChan + '/' + myNick).remove();
+    input.value = "";
+}
+
+function render(d) {
+    if(!d) return;
+    const box = document.getElementById('messages');
+    const div = document.createElement('div');
+    div.className = "msg";
+    const isK = d.n === KURUCU, isA = d.n === ADMIN, isB = d.isBot;
+    
+    div.innerHTML = `
+        <div>
+            ${isK?'<span class="badge" style="background:var(--admin-red)">KURUCU</span>':isA?'<span class="badge" style="background:var(--admin-orange)">ADMİN</span>':isB?'<span class="badge" style="background:var(--bot-green)">BOT</span>':''}
+            <span class="nick ${isK?'kurucu':isA?'admin-volar':isB?'bot':''}">${d.n}</span>
+            <span style="font-size:11px; color:var(--text-muted)">${new Date(d.t).toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'})}</span>
+        </div>
+        ${d.m ? `<div style="margin-top:6px; font-size:15px; color:#dcddde; word-wrap: break-word;">${d.m}</div>` : ''}
+        ${d.img ? `<img src="${d.img}" class="chat-img" onclick="window.open(this.src)">` : ''}
+    `;
+    box.appendChild(div);
+    box.scrollTop = box.scrollHeight;
+}
+
+// Diğer Yardımcı Fonksiyonlar
 function listenServerName() {
     db.ref('server_settings/name').on('value', snap => {
         const name = snap.val() || "CurseStudio";
@@ -155,36 +254,10 @@ function listenServerName() {
         document.title = name;
     });
 }
-
-// Sunucu Adını Güncelle (Sadece Kurucu)
 function updateServerName() {
-    const newName = document.getElementById('new-server-name').value.trim();
-    if(!newName) return;
-    db.ref('server_settings/name').set(newName).then(() => {
-        closeNameModal();
-    });
+    const n = document.getElementById('new-server-name').value.trim();
+    if(n) db.ref('server_settings/name').set(n).then(closeNameModal);
 }
-
-function openNameModal() { document.getElementById('name-modal').style.display = "flex"; }
-function closeNameModal() { document.getElementById('name-modal').style.display = "none"; }
-
-// Fullscreen Fonksiyonu
-function toggleFullScreen() {
-    if (!document.fullscreenElement) {
-        document.documentElement.requestFullscreen();
-    } else {
-        if (document.exitFullscreen) {
-            document.exitFullscreen();
-        }
-    }
-}
-
-// Diğer Fonksiyonlar (Kanal, Mesaj vb.)
-function setupDefaultChannels() {
-    db.ref('channels/genel').once('value', s => { if(!s.exists()) db.ref('channels/genel').set({type:'public'}); });
-    db.ref('channels/duyurular').once('value', s => { if(!s.exists()) db.ref('channels/duyurular').set({type:'private'}); });
-}
-
 function loadChannels() {
     db.ref('channels').on('value', snap => {
         const list = document.getElementById('chan-list');
@@ -193,66 +266,31 @@ function loadChannels() {
         Object.keys(chanData).forEach(id => {
             const div = document.createElement('div');
             div.className = `channel-btn ${activeChan === id ? 'active' : ''}`;
-            div.innerHTML = `<span># ${id}</span> ${chanData[id].type === "private" ? '🔒' : ''}`;
+            div.innerHTML = `<span># ${id}</span> ${chanData[id].type === 'private' ? '<span style="font-size:12px">🔒</span>' : ''}`;
             div.onclick = () => switchChan(id);
             list.appendChild(div);
         });
     });
 }
-
-function switchChan(id) {
-    if(chanData[id]?.type === "private" && (myNick !== KURUCU && myNick !== ADMIN)) return alert("Kilitli!");
-    activeChan = id;
-    loadChannels();
-    document.getElementById('messages').innerHTML = "";
-    db.ref('msgs/' + id).off();
-    db.ref('msgs/' + id).limitToLast(50).on('child_added', snap => render(snap.val()));
-}
-
-function send(img = null) {
-    const input = document.getElementById('chat-in');
-    const val = input.value.trim();
-    if(!val && !img) return;
-    if(val === "/clear" && (myNick === KURUCU || myNick === ADMIN)) {
-        db.ref('msgs/' + activeChan).remove().then(() => {
-            db.ref('msgs/' + activeChan).push({n: "CurseBot", m: `Sohbet temizlendi: #${activeChan}`, t: Date.now(), isBot: true});
-        });
-        input.value = ""; return;
-    }
-    db.ref('msgs/' + activeChan).push({ n: myNick, m: val, img: img, t: Date.now() });
-    input.value = "";
-}
-
-function render(d) {
-    const box = document.getElementById('messages');
-    const div = document.createElement('div');
-    div.className = "msg";
-    const isK = d.n === KURUCU, isA = d.n === ADMIN, isB = d.isBot;
-    div.innerHTML = `
-        <div>
-            ${isK?'<span class="badge" style="background:var(--admin-red)">KURUCU</span>':isA?'<span class="badge" style="background:var(--admin-orange)">ADMİN</span>':isB?'<span class="badge" style="background:var(--bot-green)">SYSTEM</span>':''}
-            <span class="nick ${isK?'kurucu':isA?'admin-volar':isB?'bot':''}">${d.n}</span>
-            <span style="font-size:10px; color:#72767d">${new Date(d.t).toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'})}</span>
-        </div>
-        ${d.m ? `<div style="margin-top:5px">${d.m}</div>` : ''}
-        ${d.img ? `<img src="${d.img}" class="chat-img" onclick="window.open(this.src)">` : ''}
-    `;
-    box.appendChild(div); box.scrollTop = box.scrollHeight;
-}
-
-function openMgmt() { document.getElementById('mgmt-modal').style.display = "flex"; }
-function closeMgmt() { document.getElementById('mgmt-modal').style.display = "none"; }
 function createChan() {
-    const name = document.getElementById('new-chan-name').value.trim().toLowerCase().replace(/\s+/g, '-');
-    const type = document.getElementById('new-chan-type').value;
-    if(name) db.ref('channels/' + name).set({ type: type }).then(closeMgmt);
+    const n = document.getElementById('new-chan-name').value.trim().toLowerCase().replace(/\s+/g, '-');
+    const t = document.getElementById('new-chan-type').value;
+    if(n) db.ref('channels/' + n).set({type:t}).then(closeMgmt);
 }
 function deleteChan() {
-    if(activeChan === "genel" || activeChan === "duyurular") return;
+    if(activeChan === "genel" || activeChan === "duyurular") return alert("Sistem kanalları silinemez!");
     db.ref('channels/' + activeChan).remove();
     db.ref('msgs/' + activeChan).remove();
     switchChan('genel'); closeMgmt();
 }
+function toggleFullScreen() {
+    if (!document.fullscreenElement) document.documentElement.requestFullscreen();
+    else document.exitFullscreen();
+}
+function openNameModal() { document.getElementById('name-modal').style.display = "flex"; }
+function closeNameModal() { document.getElementById('name-modal').style.display = "none"; }
+function openMgmt() { document.getElementById('mgmt-modal').style.display = "flex"; }
+function closeMgmt() { document.getElementById('mgmt-modal').style.display = "none"; }
 function upFile(el) {
     if(el.files[0]) {
         const reader = new FileReader();
