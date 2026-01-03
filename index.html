@@ -5,44 +5,46 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>CurseStudio Chat</title>
 <style>
-  body {font-family:sans-serif;background:#1e1e2f;color:#fff;margin:0;padding:0;display:flex;flex-direction:column;height:100vh;}
-  #login {display:flex;flex-direction:column;align-items:center;justify-content:center;flex:1;}
-  #chat {display:none;flex-direction:column;height:100vh;}
-  #messages {flex:1;overflow-y:auto;padding:10px;background:#2a2a40;}
-  .message {margin:5px 0;}
-  .author {font-weight:bold;}
-  #inputArea {display:flex;}
-  #inputArea input {flex:1;padding:10px;border:none;border-top:1px solid #444;background:#1e1e2f;color:#fff;}
-  #inputArea button {padding:10px;border:none;background:#4a4aff;color:#fff;cursor:pointer;}
-  #channels {display:flex;gap:5px;padding:5px;background:#111;}
-  .channelBtn {padding:5px 10px;background:#333;color:#fff;cursor:pointer;}
-  .active {background:#4a4aff;}
+body{margin:0;font-family:sans-serif;background:#111;color:#eee}
+#login,#chat{display:none;height:100vh;width:100vw;align-items:center;justify-content:center;flex-direction:column}
+input,button,textarea{margin:5px;padding:8px;border-radius:4px;border:none}
+button{cursor:pointer;background:#222;color:#eee}
+#messages{height:60vh;width:90vw;overflow-y:auto;background:#222;padding:10px;border-radius:5px;margin:10px 0}
+.message{margin-bottom:5px;padding:5px;border-radius:3px}
+.admin{color:#0f0;font-weight:bold}
+#duyurular{background:#333;margin-top:10px;padding:5px;width:90vw;border-radius:5px}
+.file-input{margin-top:5px}
 </style>
 </head>
 <body>
 
 <div id="login">
-  <h2>CurseStudio Chat</h2>
-  <input id="nickInput" placeholder="Nick giriniz">
-  <button id="loginBtn">Giriş Yap</button>
-  <button id="skipBtn">Skip</button>
+<h2>CurseStudio Chat</h2>
+<input type="text" id="nick" placeholder="Nick" maxlength="20">
+<input type="password" id="pass" placeholder="Şifre">
+<button id="loginBtn">Giriş Yap</button>
+<button id="registerBtn">Kayıt Ol</button>
+<button id="skipBtn">Random Nick ile Gir</button>
 </div>
 
 <div id="chat">
-  <div id="channels">
-    <div class="channelBtn active" data-channel="main"># Genel Chat</div>
-    <div class="channelBtn" data-channel="announcements"># Duyurular</div>
-  </div>
-  <div id="messages"></div>
-  <div id="inputArea">
-    <input id="msgInput" placeholder="Mesajınızı yazın...">
-    <button id="sendBtn">Gönder</button>
-  </div>
+<h2>Merhaba <span id="nickShow"></span></h2>
+<div id="messages"></div>
+<textarea id="msgInput" placeholder="Mesajınızı yazın..." maxlength="10000"></textarea>
+<input type="file" id="fileInput" class="file-input">
+<button id="sendBtn">Gönder</button>
+<button id="logoutBtn">Çıkış Yap</button>
+
+<div id="duyurular">
+<h3>#Duyurular</h3>
+<div id="announceMessages"></div>
+</div>
 </div>
 
 <script type="module">
-import { initializeApp } from "https://www.gstatic.com/firebasejs/10.10.0/firebase-app.js";
-import { getDatabase, ref, push, onChildAdded, set, remove } from "https://www.gstatic.com/firebasejs/10.10.0/firebase-database.js";
+import { initializeApp } from "https://www.gstatic.com/firebasejs/10.3.0/firebase-app.js";
+import { getDatabase, ref, push, onChildAdded, remove, set, get } from "https://www.gstatic.com/firebasejs/10.3.0/firebase-database.js";
+import { getStorage, ref as sRef, uploadBytes, getDownloadURL } from "https://www.gstatic.com/firebasejs/10.3.0/firebase-storage.js";
 
 // Firebase config
 const firebaseConfig = {
@@ -54,82 +56,95 @@ const firebaseConfig = {
   messagingSenderId: "6190203668",
   appId: "1:6190203668:web:bb7475428ab3f96c62b801"
 };
+
 const app = initializeApp(firebaseConfig);
 const db = getDatabase(app);
+const storage = getStorage(app);
 
-let nick = '';
-let currentChannel = 'main';
+let currentNick = localStorage.getItem('nick') || "";
+let currentPass = localStorage.getItem('pass') || "";
+const adminNick = "The1545";
+const allowedChars = /[a-zA-Z0-9ğüşi.<>|"é!'^+%&/()=?_\-*#$½{}\[\]\\| ]/;
 
-// --- Login ---
-const loginDiv = document.getElementById('login');
-const chatDiv = document.getElementById('chat');
-const nickInput = document.getElementById('nickInput');
-const loginBtn = document.getElementById('loginBtn');
-const skipBtn = document.getElementById('skipBtn');
+// Elements
+const loginDiv=document.getElementById('login');
+const chatDiv=document.getElementById('chat');
+const nickInput=document.getElementById('nick');
+const passInput=document.getElementById('pass');
+const loginBtn=document.getElementById('loginBtn');
+const registerBtn=document.getElementById('registerBtn');
+const skipBtn=document.getElementById('skipBtn');
+const nickShow=document.getElementById('nickShow');
+const messagesDiv=document.getElementById('messages');
+const announceDiv=document.getElementById('announceMessages');
+const msgInput=document.getElementById('msgInput');
+const sendBtn=document.getElementById('sendBtn');
+const logoutBtn=document.getElementById('logoutBtn');
+const fileInput=document.getElementById('fileInput');
 
-loginBtn.onclick = () => {
-  if(nickInput.value.trim()) startChat(nickInput.value.trim());
-};
+// Login/Register functions
+function validNick(nick){return nick.length && [...nick].every(c=>allowedChars.test(c))}
+async function register(){let nick=nickInput.value.trim(),pass=passInput.value;if(!validNick(nick)){alert("Nick geçersiz");return;}await set(ref(db,'users/'+nick),{pass});loginNick(nick,pass);}
+async function loginNick(nick,pass){let snap=await get(ref(db,'users/'+nick));if(snap.exists()&&snap.val().pass===pass||nick===currentNick){localStorage.setItem('nick',nick);localStorage.setItem('pass',pass);currentNick=nick;currentPass=pass;nickShow.textContent=nick;loginDiv.style.display='none';chatDiv.style.display='flex';initChat();}else alert("Hatalı nick veya şifre");}
+function skipLogin(){let nick="User"+Math.floor(Math.random()*10000);currentNick=nick;nickShow.textContent=nick;loginDiv.style.display='none';chatDiv.style.display='flex';initChat();}
 
-skipBtn.onclick = () => {
-  const randNick = 'User' + Math.floor(Math.random()*10000);
-  startChat(randNick);
-};
-
-function startChat(n) {
-  nick = n;
-  loginDiv.style.display = 'none';
-  chatDiv.style.display = 'flex';
-  loadMessages(currentChannel);
-}
-
-// --- Channels ---
-const channelBtns = document.querySelectorAll('.channelBtn');
-channelBtns.forEach(btn => {
-  btn.onclick = () => {
-    channelBtns.forEach(b=>b.classList.remove('active'));
-    btn.classList.add('active');
-    currentChannel = btn.dataset.channel;
-    loadMessages(currentChannel);
-  }
-});
-
-// --- Messages ---
-const messagesDiv = document.getElementById('messages');
-const msgInput = document.getElementById('msgInput');
-const sendBtn = document.getElementById('sendBtn');
-
-function loadMessages(channel) {
-  messagesDiv.innerHTML = '';
-  const channelRef = ref(db, channel);
-  onChildAdded(channelRef, (snap) => {
-    const data = snap.val();
-    const div = document.createElement('div');
-    div.className = 'message';
-    div.innerHTML = `<span class="author">${data.author}:</span> ${data.text}`;
-    messagesDiv.appendChild(div);
-    messagesDiv.scrollTop = messagesDiv.scrollHeight;
+// Chat
+function initChat(){
+  const msgRef=ref(db,'messages');
+  onChildAdded(msgRef,(data)=>{
+    const m=data.val();
+    if(m.channel=='duyuru'&&currentNick!==adminNick) return;
+    displayMessage(m);
   });
 }
 
-sendBtn.onclick = () => {
-  const text = msgInput.value.trim();
-  if(!text) return;
-  if(currentChannel==='announcements') return; // duyuruya yazılmaz
-  const channelRef = ref(db, currentChannel);
-  push(channelRef, {author:nick,text});
-  msgInput.value='';
-};
+function displayMessage(m){
+  const div=document.createElement('div');
+  div.className='message';
+  if(m.nick===adminNick) div.classList.add('admin');
+  let content=m.text;
+  if(m.fileUrl) content+='<br><a href="'+m.fileUrl+'" target="_blank">📎 Dosya</a>';
+  div.innerHTML=`<strong>${m.nick}:</strong> ${content}`;
+  if(m.channel==='duyuru') announceDiv.appendChild(div); else messagesDiv.appendChild(div);
+  messagesDiv.scrollTop=messagesDiv.scrollHeight;
+  announceDiv.scrollTop=announceDiv.scrollHeight;
+}
 
-// --- Hidden Reset (Ctrl+Shift+F9) ---
-document.addEventListener('keydown', (e)=>{
-  if(e.ctrlKey && e.shiftKey && e.key==='F9'){
-    if(confirm("Tüm chat silinsin mi?")){
-      remove(ref(db,'main')).then(()=>push(ref(db,'main'),{author:'CurseBot',text:'Chat Yönetici Tarafından Sıfırlandı'}));
-      remove(ref(db,'announcements')).then(()=>push(ref(db,'announcements'),{author:'CurseBot',text:'Chat Yönetici Tarafından Sıfırlandı'}));
-    }
+// Send message
+sendBtn.onclick=async()=>{
+  let text=msgInput.value.trim(); if(!text&&!fileInput.files.length)return;
+  if(text.length>10000){alert("Max 10000 karakter");return;}
+  let channel='chat'; if(currentNick===adminNick&&document.activeElement===msgInput&&msgInput.placeholder.includes("Duyuru")) channel='duyuru';
+  let msg={nick:currentNick,text,channel};
+  if(fileInput.files.length){
+    let file=fileInput.files[0];
+    let storageRef=sRef(storage,'files/'+Date.now()+"_"+file.name);
+    await uploadBytes(storageRef,file);
+    msg.fileUrl=await getDownloadURL(storageRef);
+  }
+  push(ref(db,'messages'),msg);
+  msgInput.value='';fileInput.value='';
+}
+
+// Logout
+logoutBtn.onclick=()=>{
+  localStorage.removeItem('nick');localStorage.removeItem('pass');location.reload();
+}
+
+// Login/Register buttons
+loginBtn.onclick=()=>loginNick(nickInput.value,passInput.value);
+registerBtn.onclick=register;
+skipBtn.onclick=skipLogin;
+
+// Reset chat on command (Ctrl+Shift+F9)
+document.addEventListener('keydown',e=>{
+  if(e.ctrlKey&&e.shiftKey&&e.key==='F9'&&currentNick===adminNick){
+    remove(ref(db,'messages')).then(()=>{push(ref(db,'messages'),{nick:'CurseBot',text:'Chat Yönetici Tarafından Sıfırlandı',channel:'chat'});location.reload();});
   }
 });
+
+// Init
+if(currentNick){loginNick(currentNick,currentPass);}else{loginDiv.style.display='flex';}
 </script>
 </body>
 </html>
