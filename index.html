@@ -5,14 +5,18 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>CurseStudio Chat</title>
 <style>
-body{margin:0;font-family:sans-serif;background:#111;color:#eee}
-#login,#chat{display:none;height:100vh;width:100vw;align-items:center;justify-content:center;flex-direction:column}
+body{margin:0;font-family:sans-serif;background:#111;color:#eee;display:flex;flex-direction:column;height:100vh;}
+#login,#chat{display:none;flex:1;align-items:center;justify-content:center;flex-direction:column;}
 input,button,textarea{margin:5px;padding:8px;border-radius:4px;border:none}
 button{cursor:pointer;background:#222;color:#eee}
-#messages{height:60vh;width:90vw;overflow-y:auto;background:#222;padding:10px;border-radius:5px;margin:10px 0}
+#tabs{display:flex;margin-top:10px;}
+.tab{padding:10px 20px;cursor:pointer;background:#222;margin-right:2px;border-radius:4px;}
+.tab.active{background:#444;}
+.channel{display:none;flex-direction:column;width:90vw;max-width:800px;}
+#messages,#announceMessages{height:60vh;overflow-y:auto;background:#222;padding:10px;border-radius:5px;margin-top:10px;}
 .message{margin-bottom:5px;padding:5px;border-radius:3px}
 .admin{color:#0f0;font-weight:bold}
-#duyurular{background:#333;margin-top:10px;padding:5px;width:90vw;border-radius:5px}
+textarea{width:100%;border-radius:4px;}
 .file-input{margin-top:5px}
 </style>
 </head>
@@ -29,16 +33,25 @@ button{cursor:pointer;background:#222;color:#eee}
 
 <div id="chat">
 <h2>Merhaba <span id="nickShow"></span></h2>
-<div id="messages"></div>
+
+<div id="tabs">
+  <div class="tab active" data-channel="chat">Genel Chat</div>
+  <div class="tab" data-channel="duyuru">#Duyurular</div>
+</div>
+
+<div id="chatContainer">
+  <div id="chatChannel" class="channel" style="display:flex;flex-direction:column;">
+    <div id="messages"></div>
+  </div>
+  <div id="announceChannel" class="channel">
+    <div id="announceMessages"></div>
+  </div>
+</div>
+
 <textarea id="msgInput" placeholder="Mesajınızı yazın..." maxlength="10000"></textarea>
 <input type="file" id="fileInput" class="file-input">
 <button id="sendBtn">Gönder</button>
 <button id="logoutBtn">Çıkış Yap</button>
-
-<div id="duyurular">
-<h3>#Duyurular</h3>
-<div id="announceMessages"></div>
-</div>
 </div>
 
 <script type="module">
@@ -46,7 +59,6 @@ import { initializeApp } from "https://www.gstatic.com/firebasejs/10.3.0/firebas
 import { getDatabase, ref, push, onChildAdded, remove, set, get } from "https://www.gstatic.com/firebasejs/10.3.0/firebase-database.js";
 import { getStorage, ref as sRef, uploadBytes, getDownloadURL } from "https://www.gstatic.com/firebasejs/10.3.0/firebase-storage.js";
 
-// Firebase config
 const firebaseConfig = {
   apiKey: "AIzaSyCnoxoPsUFx3f71SAcV7vd5ex_ZUmOk3e0",
   authDomain: "cursestudio-chat.firebaseapp.com",
@@ -66,7 +78,6 @@ let currentPass = localStorage.getItem('pass') || "";
 const adminNick = "The1545";
 const allowedChars = /[a-zA-Z0-9ğüşi.<>|"é!'^+%&/()=?_\-*#$½{}\[\]\\| ]/;
 
-// Elements
 const loginDiv=document.getElementById('login');
 const chatDiv=document.getElementById('chat');
 const nickInput=document.getElementById('nick');
@@ -81,14 +92,15 @@ const msgInput=document.getElementById('msgInput');
 const sendBtn=document.getElementById('sendBtn');
 const logoutBtn=document.getElementById('logoutBtn');
 const fileInput=document.getElementById('fileInput');
+const tabs=document.querySelectorAll('.tab');
+const chatChannelDiv=document.getElementById('chatChannel');
+const announceChannelDiv=document.getElementById('announceChannel');
 
-// Login/Register functions
 function validNick(nick){return nick.length && [...nick].every(c=>allowedChars.test(c))}
 async function register(){let nick=nickInput.value.trim(),pass=passInput.value;if(!validNick(nick)){alert("Nick geçersiz");return;}await set(ref(db,'users/'+nick),{pass});loginNick(nick,pass);}
 async function loginNick(nick,pass){let snap=await get(ref(db,'users/'+nick));if(snap.exists()&&snap.val().pass===pass||nick===currentNick){localStorage.setItem('nick',nick);localStorage.setItem('pass',pass);currentNick=nick;currentPass=pass;nickShow.textContent=nick;loginDiv.style.display='none';chatDiv.style.display='flex';initChat();}else alert("Hatalı nick veya şifre");}
 function skipLogin(){let nick="User"+Math.floor(Math.random()*10000);currentNick=nick;nickShow.textContent=nick;loginDiv.style.display='none';chatDiv.style.display='flex';initChat();}
 
-// Chat
 function initChat(){
   const msgRef=ref(db,'messages');
   onChildAdded(msgRef,(data)=>{
@@ -110,11 +122,10 @@ function displayMessage(m){
   announceDiv.scrollTop=announceDiv.scrollHeight;
 }
 
-// Send message
 sendBtn.onclick=async()=>{
   let text=msgInput.value.trim(); if(!text&&!fileInput.files.length)return;
   if(text.length>10000){alert("Max 10000 karakter");return;}
-  let channel='chat'; if(currentNick===adminNick&&document.activeElement===msgInput&&msgInput.placeholder.includes("Duyuru")) channel='duyuru';
+  let channel='chat'; if(currentNick===adminNick&&activeChannel==='duyuru') channel='duyuru';
   let msg={nick:currentNick,text,channel};
   if(fileInput.files.length){
     let file=fileInput.files[0];
@@ -126,24 +137,30 @@ sendBtn.onclick=async()=>{
   msgInput.value='';fileInput.value='';
 }
 
-// Logout
-logoutBtn.onclick=()=>{
-  localStorage.removeItem('nick');localStorage.removeItem('pass');location.reload();
-}
-
-// Login/Register buttons
+logoutBtn.onclick=()=>{localStorage.removeItem('nick');localStorage.removeItem('pass');location.reload();}
 loginBtn.onclick=()=>loginNick(nickInput.value,passInput.value);
 registerBtn.onclick=register;
 skipBtn.onclick=skipLogin;
 
-// Reset chat on command (Ctrl+Shift+F9)
+// Ctrl+Shift+F9 reset
 document.addEventListener('keydown',e=>{
   if(e.ctrlKey&&e.shiftKey&&e.key==='F9'&&currentNick===adminNick){
     remove(ref(db,'messages')).then(()=>{push(ref(db,'messages'),{nick:'CurseBot',text:'Chat Yönetici Tarafından Sıfırlandı',channel:'chat'});location.reload();});
   }
 });
 
-// Init
+// Tab switch
+let activeChannel='chat';
+tabs.forEach(tab=>{
+  tab.onclick=()=>{
+    tabs.forEach(t=>t.classList.remove('active'));
+    tab.classList.add('active');
+    activeChannel=tab.dataset.channel;
+    if(activeChannel==='chat'){chatChannelDiv.style.display='flex';announceChannelDiv.style.display='none';}
+    else{chatChannelDiv.style.display='none';announceChannelDiv.style.display='flex';}
+  }
+});
+
 if(currentNick){loginNick(currentNick,currentPass);}else{loginDiv.style.display='flex';}
 </script>
 </body>
