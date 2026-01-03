@@ -17,7 +17,7 @@
   #channels { display:flex; background:#111133; }
   .channel { flex:1; text-align:center; padding:5px; cursor:pointer; }
   .active { background:#333366; }
-  #login button { width:200px; }
+  #login button { width:200px; margin-top:5px; }
 </style>
 </head>
 <body>
@@ -42,100 +42,103 @@
 </div>
 
 <script type="module">
-  import { initializeApp } from "https://www.gstatic.com/firebasejs/10.6.1/firebase-app.js";
-  import { getDatabase, ref, push, onChildAdded } from "https://www.gstatic.com/firebasejs/10.6.1/firebase-database.js";
+import { initializeApp } from "https://www.gstatic.com/firebasejs/10.6.1/firebase-app.js";
+import { getDatabase, ref, push, onValue } from "https://www.gstatic.com/firebasejs/10.6.1/firebase-database.js";
 
-  const firebaseConfig = {
-    apiKey: "AIzaSyCnoxoPsUFx3f71SAcV7vd5ex_ZUmOk3e0",
-    authDomain: "cursestudio-chat.firebaseapp.com",
-    databaseURL: "https://cursestudio-chat-default-rtdb.europe-west1.firebasedatabase.app",
-    projectId: "cursestudio-chat",
-    storageBucket: "cursestudio-chat.firebasedestorage.app",
-    messagingSenderId: "6190203668",
-    appId: "1:6190203668:web:bb7475428ab3f96c62b801"
+const firebaseConfig = {
+  apiKey: "AIzaSyCnoxoPsUFx3f71SAcV7vd5ex_ZUmOk3e0",
+  authDomain: "cursestudio-chat.firebaseapp.com",
+  databaseURL: "https://cursestudio-chat-default-rtdb.europe-west1.firebasedatabase.app",
+  projectId: "cursestudio-chat",
+  storageBucket: "cursestudio-chat.firebasedestorage.app",
+  messagingSenderId: "6190203668",
+  appId: "1:6190203668:web:bb7475428ab3f96c62b801"
+};
+
+const app = initializeApp(firebaseConfig);
+const db = getDatabase(app);
+
+const loginDiv = document.getElementById('login');
+const chatDiv = document.getElementById('chat');
+const nickInput = document.getElementById('nick');
+const loginBtn = document.getElementById('loginBtn');
+const skipBtn = document.getElementById('skipBtn');
+
+let nick = '';
+
+function enterChat(userNick){
+  nick = userNick;
+  loginDiv.style.display='none';
+  chatDiv.style.display='flex';
+  localStorage.setItem('nick', nick);
+  initChat();
+}
+
+loginBtn.onclick = ()=>{
+  const val = nickInput.value.trim();
+  if(val) enterChat(val);
+  else alert('Nick girmelisin veya Skip basabilirsin');
+};
+
+skipBtn.onclick = ()=>{
+  const randomNick = `User${Math.floor(Math.random()*9999)}`;
+  enterChat(randomNick);
+};
+
+const channels = document.querySelectorAll('.channel');
+let activeChannel = 'chat';
+channels.forEach(ch=>{
+  ch.onclick = ()=>{
+    channels.forEach(c=>c.classList.remove('active'));
+    ch.classList.add('active');
+    activeChannel = ch.dataset.name;
+    loadMessages();
   };
+});
 
-  const app = initializeApp(firebaseConfig);
-  const db = getDatabase(app);
+const messagesDiv = document.getElementById('messages');
+const msgInput = document.getElementById('msg');
+const sendBtn = document.getElementById('sendBtn');
 
-  const loginDiv = document.getElementById('login');
-  const chatDiv = document.getElementById('chat');
-  const nickInput = document.getElementById('nick');
-  const loginBtn = document.getElementById('loginBtn');
-  const skipBtn = document.getElementById('skipBtn');
+function initChat(){
+  loadMessages();
+  sendBtn.onclick = sendMessage;
+  msgInput.addEventListener('keydown', e=>{ if(e.key==='Enter') sendMessage(); });
 
-  let nick = '';
-
-  function enterChat(userNick) {
-    nick = userNick;
-    loginDiv.style.display='none';
-    chatDiv.style.display='flex';
-    localStorage.setItem('nick', nick);
-    initChat();
-  }
-
-  loginBtn.onclick = () => {
-    const val = nickInput.value.trim();
-    if(val) enterChat(val);
-    else alert('Nick girmelisin veya Skip basabilirsin');
-  };
-
-  skipBtn.onclick = () => {
-    const randomNick = `User${Math.floor(Math.random()*9999)}`;
-    enterChat(randomNick);
-  };
-
-  const channels = document.querySelectorAll('.channel');
-  let activeChannel = 'chat';
-  channels.forEach(ch => {
-    ch.onclick = () => {
-      channels.forEach(c=>c.classList.remove('active'));
-      ch.classList.add('active');
-      activeChannel = ch.dataset.name;
-      loadMessages();
+  document.addEventListener('keydown', e=>{
+    if(e.ctrlKey && e.shiftKey && e.key==='F9'){
+      localStorage.clear();
+      push(ref(db,'announcement'), {nick:'CurseBot', text:'Chat Yönetici Tarafından Sıfırlandı', time:Date.now()});
+      messagesDiv.innerHTML='';
     }
   });
+}
 
-  const messagesDiv = document.getElementById('messages');
-  const msgInput = document.getElementById('msg');
-  const sendBtn = document.getElementById('sendBtn');
+function sendMessage(){
+  const text = msgInput.value.trim();
+  if(!text) return;
+  if(activeChannel==='announcement') return;
+  push(ref(db,activeChannel), {nick,text,time:Date.now()});
+  msgInput.value='';
+}
 
-  function initChat() {
-    loadMessages();
-    sendBtn.onclick = sendMessage;
-    msgInput.addEventListener('keydown', e => { if(e.key==='Enter') sendMessage(); });
-
-    document.addEventListener('keydown', e => {
-      if(e.ctrlKey && e.shiftKey && e.key==='F9') {
-        localStorage.clear();
-        push(ref(db,'announcement'), {nick:'CurseBot', text:'Chat Yönetici Tarafından Sıfırlandı', time:Date.now()});
-        messagesDiv.innerHTML='';
-      }
-    });
-  }
-
-  function sendMessage() {
-    const text = msgInput.value.trim();
-    if(!text) return;
-    if(activeChannel==='announcement') return;
-    push(ref(db, activeChannel), {nick,text,time:Date.now()});
-    msgInput.value='';
-  }
-
-  function loadMessages() {
+function loadMessages(){
+  messagesDiv.innerHTML='';
+  const dbRef = ref(db, activeChannel);
+  onValue(dbRef, snapshot=>{
     messagesDiv.innerHTML='';
-    const dbRef = ref(db, activeChannel);
-    onChildAdded(dbRef, snapshot => {
-      const data = snapshot.val();
+    const data = snapshot.val();
+    if(!data) return;
+    Object.values(data).forEach(msg=>{
       const msgDiv = document.createElement('div');
       msgDiv.classList.add('message');
       if(activeChannel==='announcement') msgDiv.classList.add('announcement');
-      msgDiv.textContent = `[${new Date(data.time).toLocaleTimeString()}] ${data.nick}: ${data.text}`;
+      msgDiv.textContent = `[${new Date(msg.time).toLocaleTimeString()}] ${msg.nick}: ${msg.text}`;
       messagesDiv.appendChild(msgDiv);
-      messagesDiv.scrollTop = messagesDiv.scrollHeight;
     });
-  }
-
+    messagesDiv.scrollTop = messagesDiv.scrollHeight;
+  });
+}
 </script>
 </body>
 </html>
