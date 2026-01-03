@@ -5,26 +5,55 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>CurseStudio Chat</title>
 <style>
-    body { margin:0; font-family:sans-serif; background:#2f3136; color:#dcddde; display:flex; height:100vh; }
-    #channels { width:200px; background:#202225; padding:10px; display:flex; flex-direction:column; }
-    #channels button { margin:5px 0; background:#36393f; color:#dcddde; border:none; padding:8px; cursor:pointer; text-align:left; }
-    #chat-container { flex:1; display:flex; flex-direction:column; }
-    #messages { flex:1; padding:10px; overflow-y:auto; }
-    .message { margin:5px 0; }
-    .message .user { font-weight:bold; margin-right:5px; }
-    #input-container { display:flex; background:#40444b; padding:5px; }
-    #input-container input[type=text] { flex:1; padding:8px; border:none; border-radius:4px; margin-right:5px; }
-    #input-container input[type=file] { display:none; }
-    #input-container button { padding:8px; border:none; border-radius:4px; background:#7289da; color:#fff; cursor:pointer; }
-    #login { position:absolute; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.9); display:flex; justify-content:center; align-items:center; flex-direction:column; color:#fff; }
-    #login input { padding:8px; margin:5px; border-radius:4px; border:none; width:200px; }
+body{margin:0;font-family:sans-serif;background:#36393f;color:#dcddde;display:flex;height:100vh;overflow:hidden;}
+#loginScreen,#chatScreen{width:100%;height:100%;display:flex;flex-direction:column;}
+#loginScreen{align-items:center;justify-content:center;background:#2f3136;}
+#loginScreen input,#loginScreen button{padding:10px;margin:5px;border:none;border-radius:5px;}
+#chatScreen{display:none;flex-direction:row;}
+#channels{width:200px;background:#2f3136;padding:10px;display:flex;flex-direction:column;}
+#channels button{background:#202225;color:#dcddde;border:none;padding:8px;margin:3px;border-radius:5px;text-align:left;cursor:pointer;}
+#channels button.active{background:#5865f2;color:white;}
+#users{width:150px;background:#2f3136;padding:10px;overflow-y:auto;}
+#messages{flex:1;background:#36393f;padding:10px;display:flex;flex-direction:column;overflow-y:auto;}
+.message{margin:5px 0;padding:5px 10px;border-radius:5px;max-width:80%;word-wrap:break-word;}
+.message.you{background:#7289da;color:white;align-self:flex-end;}
+.message.other{background:#40444b;color:white;align-self:flex-start;}
+.message.announcement{background:#faa61a;color:black;font-weight:bold;align-self:center;}
+#inputArea{display:flex;padding:10px;background:#40444b;}
+#inputArea input{flex:1;padding:10px;border:none;border-radius:5px;margin-right:5px;}
+#inputArea button{padding:10px;border:none;border-radius:5px;background:#5865f2;color:white;cursor:pointer;}
 </style>
-<script type="module">
-import { initializeApp } from "https://www.gstatic.com/firebasejs/10.1.0/firebase-app.js";
-import { getDatabase, ref, push, onChildAdded, set, get, child, remove } from "https://www.gstatic.com/firebasejs/10.1.0/firebase-database.js";
-import { getStorage, ref as sref, uploadBytes, getDownloadURL } from "https://www.gstatic.com/firebasejs/10.1.0/firebase-storage.js";
+</head>
+<body>
 
-// Firebase config
+<div id="loginScreen">
+  <h2>CurseStudio Chat</h2>
+  <input type="text" id="nickInput" placeholder="Nick gir veya Skip ile rastgele">
+  <input type="password" id="passInput" placeholder="Şifre (yeni kullanıcı için kaydet)">
+  <button id="skipBtn">Skip</button>
+  <button id="loginBtn">Giriş / Kayıt</button>
+</div>
+
+<div id="chatScreen">
+  <div id="channels">
+    <button class="active" data-channel="general">#Genel</button>
+    <button data-channel="announcements">#Duyurular</button>
+  </div>
+  <div id="messages"></div>
+  <div id="users"></div>
+</div>
+
+<div id="inputArea">
+  <input type="text" id="msgInput" placeholder="Mesajını yaz...">
+  <input type="file" id="fileInput">
+  <button id="sendBtn">Gönder</button>
+</div>
+
+<script type="module">
+import { initializeApp } from "https://www.gstatic.com/firebasejs/10.4.0/firebase-app.js";
+import { getDatabase, ref, push, onChildAdded, set, get } from "https://www.gstatic.com/firebasejs/10.4.0/firebase-database.js";
+import { getStorage, ref as sRef, uploadBytes, getDownloadURL } from "https://www.gstatic.com/firebasejs/10.4.0/firebase-storage.js";
+
 const firebaseConfig = {
   apiKey: "AIzaSyCnoxoPsUFx3f71SAcV7vd5ex_ZUmOk3e0",
   authDomain: "cursestudio-chat.firebaseapp.com",
@@ -34,133 +63,86 @@ const firebaseConfig = {
   messagingSenderId: "6190203668",
   appId: "1:6190203668:web:bb7475428ab3f96c62b801"
 };
+
 const app = initializeApp(firebaseConfig);
 const db = getDatabase(app);
 const storage = getStorage(app);
 
-// DOM
-const loginDiv = document.getElementById("login");
-const nickInput = document.getElementById("nick");
-const skipBtn = document.getElementById("skip");
-const loginBtn = document.getElementById("login-btn");
-const messagesDiv = document.getElementById("messages");
-const msgInput = document.getElementById("msg");
-const sendBtn = document.getElementById("send");
-const fileInput = document.getElementById("file");
-const channelsDiv = document.getElementById("channels");
+let currentNick = "";
+let currentChannel = "general";
+let isAdmin = false;
 
-let nick = localStorage.getItem("nick") || "";
+// Login/Register
+const loginScreen = document.getElementById('loginScreen');
+const chatScreen = document.getElementById('chatScreen');
+const nickInput = document.getElementById('nickInput');
+const passInput = document.getElementById('passInput');
+const skipBtn = document.getElementById('skipBtn');
+const loginBtn = document.getElementById('loginBtn');
+const messagesDiv = document.getElementById('messages');
+const msgInput = document.getElementById('msgInput');
+const sendBtn = document.getElementById('sendBtn');
+const fileInput = document.getElementById('fileInput');
+const channelsBtns = document.querySelectorAll('#channels button');
 
-// Kanallar
-const channels = ["#Genel", "#Duyurular"];
-let currentChannel = channels[0];
+function randomNick(){return 'User'+Math.floor(Math.random()*10000);}
+skipBtn.onclick=()=>{nickInput.value=randomNick();};
 
-// Admin
-const adminNick = "The1545";
-
-// Login
-function login(user) {
-  nick = user;
-  localStorage.setItem("nick", nick);
-  loginDiv.style.display = "none";
+loginBtn.onclick=async()=>{
+  let nick = nickInput.value.trim().substring(0,20);
+  let pass = passInput.value.trim();
+  if(!nick) nick = randomNick();
+  if(!/^[a-zA-Z0-9ğüşi.<>|"é!'^+%&/()=?_\-*#$½{}\[\]\\|]+$/.test(nick)){alert("Geçersiz karakter");return;}
+  const userRef = ref(db,'users/'+nick);
+  const snap = await get(userRef);
+  if(snap.exists()){
+    if(snap.val().pass!==pass){alert("Şifre yanlış");return;}
+  }else{
+    await set(userRef,{pass:pass});
+  }
+  currentNick=nick;
+  if(nick==="The1545") isAdmin=true;
+  loginScreen.style.display="none";
+  chatScreen.style.display="flex";
   loadMessages();
-}
-if(nick) login(nick);
+};
 
-loginBtn.onclick = ()=>{ if(nickInput.value.trim()) login(nickInput.value.trim()); }
-skipBtn.onclick = ()=>{
-  const randomNick = "Guest"+Math.floor(Math.random()*1000);
-  login(randomNick);
-}
-
-// Kanalları göster
-channelsDiv.innerHTML = "";
-channels.forEach(ch=>{
-  const btn = document.createElement("button");
-  btn.textContent = ch;
-  btn.onclick = ()=>{ currentChannel = ch; messagesDiv.innerHTML=""; loadMessages(); }
-  channelsDiv.appendChild(btn);
-});
-
-// Mesajları yükle
-function loadMessages() {
-  const chRef = ref(db, "channels/"+currentChannel);
-  messagesDiv.innerHTML="";
-  onChildAdded(chRef, (data)=>{
-    const d = data.val();
-    const div = document.createElement("div");
-    div.className="message";
-    if(d.file){
-      div.innerHTML = `<span class="user">${d.user}:</span> <a href="${d.file}" target="_blank"><img src="${d.file}" style="max-width:200px;max-height:200px;"></a>`;
-    } else {
-      div.innerHTML = `<span class="user">${d.user}:</span> ${d.text}`;
-    }
-    messagesDiv.appendChild(div);
+function loadMessages(){
+  const msgsRef = ref(db,'messages/'+currentChannel);
+  onChildAdded(msgsRef,(snap)=>{
+    const data = snap.val();
+    const msgEl = document.createElement('div');
+    msgEl.className='message '+(data.nick===currentNick?'you':(data.nick==='CurseBot'?'announcement':'other'));
+    msgEl.innerHTML=data.text+ (data.img?'<br><img src="'+data.img+'" style="max-width:150px;max-height:150px;border-radius:5px;">':'');
+    messagesDiv.appendChild(msgEl);
     messagesDiv.scrollTop = messagesDiv.scrollHeight;
   });
 }
 
-// Gönder
-sendBtn.onclick = ()=>{
-  const text = msgInput.value.trim();
-  if(!text && !fileInput.files[0]) return;
-
-  if(fileInput.files[0]){
-    const f = fileInput.files[0];
-    const stRef = sref(storage, `files/${Date.now()}_${f.name}`);
-    uploadBytes(stRef,f).then(snap=>{
-      getDownloadURL(stRef).then(url=>{
-        push(ref(db,"channels/"+currentChannel),{
-          user:nick,
-          file:url,
-          time:Date.now()
-        });
-      });
-    });
+sendBtn.onclick=async()=>{
+  let text = msgInput.value.substring(0,10000);
+  if(!text && !fileInput.files.length) return;
+  let imgUrl=null;
+  if(fileInput.files.length){
+    const file = fileInput.files[0];
+    const fRef = sRef(storage,'uploads/'+Date.now()+'_'+file.name);
+    await uploadBytes(fRef,file);
+    imgUrl = await getDownloadURL(fRef);
   }
+  await push(ref(db,'messages/'+currentChannel),{nick:currentNick,text:text,img:imgUrl});
+  msgInput.value='';fileInput.value='';
+};
 
-  if(text){
-    if(text.length>10000) text = text.substring(0,10000);
-    push(ref(db,"channels/"+currentChannel),{
-      user:nick,
-      text:text,
-      time:Date.now()
-    });
-  }
-  msgInput.value="";
-  fileInput.value="";
-}
-
-// LocalStorage sıfırla
-document.addEventListener("keydown",(e)=>{
-  if(e.ctrlKey && e.shiftKey && e.key==="F9"){
-    localStorage.clear();
-    push(ref(db,"channels/"+currentChannel),{
-      user:"CurseBot",
-      text:"Chat Yönetici Tarafından Sıfırlandı",
-      time:Date.now()
-    });
-    location.reload();
-  }
+channelsBtns.forEach(btn=>{
+  btn.onclick=()=>{
+    channelsBtns.forEach(b=>b.classList.remove('active'));
+    btn.classList.add('active');
+    messagesDiv.innerHTML='';
+    currentChannel=btn.dataset.channel;
+    loadMessages();
+  };
 });
 </script>
-</head>
-<body>
-<div id="channels"></div>
-<div id="chat-container">
-  <div id="messages"></div>
-  <div id="input-container">
-    <input type="text" id="msg" placeholder="Mesaj yaz..."/>
-    <input type="file" id="file"/>
-    <button onclick="fileInput.click()">Foto</button>
-    <button id="send">Gönder</button>
-  </div>
-</div>
-<div id="login">
-  <h2>Nick Gir</h2>
-  <input type="text" id="nick" placeholder="Nick"/>
-  <button id="login-btn">Giriş</button>
-  <button id="skip">Oto Nick</button>
-</div>
+
 </body>
 </html>
