@@ -5,111 +5,86 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>CurseStudio Chat</title>
 <style>
-body { font-family: Arial, sans-serif; background:#121212; color:#eee; margin:0; display:flex; height:100vh; }
-#sidebar { width:200px; background:#1f1f1f; display:flex; flex-direction:column; padding:10px; }
-#sidebar div { padding:10px; cursor:pointer; border-radius:5px; margin-bottom:5px; }
-#sidebar .active { background:#333; }
-#chat { flex:1; display:flex; flex-direction:column; }
-#messages { flex:1; padding:10px; overflow-y:auto; }
-.message { padding:5px; margin-bottom:3px; border-radius:3px; background:#222; }
-.message.admin { background:#444; font-weight:bold; color:#ff0; }
-#inputArea { display:flex; padding:10px; background:#1a1a1a; }
-#messageInput { flex:1; padding:8px; border-radius:5px; border:none; background:#333; color:#eee; }
-#sendBtn { padding:8px 12px; margin-left:5px; border:none; border-radius:5px; background:#555; color:#eee; cursor:pointer; }
+body { font-family:sans-serif; background:#1e1e2f; color:#fff; margin:0; display:flex; flex-direction:column; height:100vh; }
+header { background:#2a2a3f; padding:10px; text-align:center; }
+#chat { flex:1; overflow-y:auto; padding:10px; background:#1b1b2a; }
+#input { display:flex; }
+#input input { flex:1; padding:10px; border:none; }
+#input button { padding:10px; border:none; background:#4a4aff; color:#fff; cursor:pointer; }
+.message { margin:5px 0; }
+.message.admin { color:#ff4a4a; }
 </style>
 </head>
 <body>
 
-<div id="sidebar">
-  <div data-channel="genel" class="active">Genel</div>
-  <div data-channel="duyuru">Duyuru</div>
+<header>
+<h1>CurseStudio Chat</h1>
+</header>
+
+<div id="chat"></div>
+
+<div id="input">
+<input id="msg" placeholder="Mesajınızı yazın..." autocomplete="off">
+<button id="send">Gönder</button>
 </div>
 
-<div id="chat">
-  <div id="messages"></div>
-  <div id="inputArea">
-    <input type="text" id="messageInput" placeholder="Mesaj yaz...">
-    <button id="sendBtn">Gönder</button>
-  </div>
-</div>
+<script type="module">
+import { createClient } from 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js/+esm'
 
-<script>
-const CHANNELS = ["genel","duyuru"];
-let currentChannel = "genel";
-const messagesDiv = document.getElementById("messages");
-const input = document.getElementById("messageInput");
+const SUPABASE_URL = 'https://<YOUR_SUPABASE_URL>.supabase.co'
+const SUPABASE_KEY = '<YOUR_SUPABASE_ANON_KEY>'
+const supabase = createClient(SUPABASE_URL, SUPABASE_KEY)
 
-// Mesajları localStorage'dan yükle veya başlat
-let channels = {};
-CHANNELS.forEach(c => {
-  const data = localStorage.getItem("chat_" + c);
-  channels[c] = data ? JSON.parse(data) : [];
-});
+let username = localStorage.getItem('nick') || prompt("Nick belirleyin:")
+localStorage.setItem('nick', username)
 
-// Admin duyuru ekleme örneği
-if(channels.duyuru.length === 0) {
-  channels.duyuru.push({user:"Admin", text:"Siteye hoşgeldiniz!"});
-  localStorage.setItem("chat_duyuru", JSON.stringify(channels.duyuru));
+const chatEl = document.getElementById('chat')
+const inputEl = document.getElementById('msg')
+const sendBtn = document.getElementById('send')
+
+// Mesajları çek
+async function loadMessages() {
+    let { data } = await supabase.from('messages').select('*').order('created_at')
+    chatEl.innerHTML = ''
+    data.forEach(m => addMessageToDOM(m))
 }
 
-function renderMessages() {
-  messagesDiv.innerHTML = "";
-  channels[currentChannel].forEach(msg => {
-    const div = document.createElement("div");
-    div.className = "message";
-    if(currentChannel === "duyuru" || msg.user === "Admin") div.classList.add("admin");
-    div.textContent = `[${msg.user}] ${msg.text}`;
-    messagesDiv.appendChild(div);
-  });
-  messagesDiv.scrollTop = messagesDiv.scrollHeight;
+// DOM'a ekle
+function addMessageToDOM(m) {
+    let div = document.createElement('div')
+    div.className = 'message' + (m.is_admin ? ' admin':'')
+    div.textContent = `${m.username}: ${m.content}`
+    chatEl.appendChild(div)
+    chatEl.scrollTop = chatEl.scrollHeight
 }
 
-function saveChannel(channel) {
-  localStorage.setItem("chat_" + channel, JSON.stringify(channels[channel]));
+// Mesaj gönder
+async function sendMessage() {
+    if(!inputEl.value) return
+    await supabase.from('messages').insert([{ username, content: inputEl.value, is_admin:false }])
+    inputEl.value = ''
 }
 
-function sendMessage() {
-  const text = input.value.trim();
-  if(!text) return;
-  if(currentChannel === "duyuru") { alert("Duyuru kanalına yazamazsın!"); return; }
-  channels[currentChannel].push({user:"Sen", text});
-  saveChannel(currentChannel);
-  input.value = "";
-  renderMessages();
-}
+// Dinleme
+supabase
+  .channel('public:messages')
+  .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'messages' }, payload => {
+      addMessageToDOM(payload.new)
+  })
+  .subscribe()
 
-document.getElementById("sendBtn").addEventListener("click", sendMessage);
-input.addEventListener("keydown", e => { if(e.key==="Enter") sendMessage(); });
+sendBtn.onclick = sendMessage
+inputEl.addEventListener('keydown', e => { if(e.key==='Enter') sendMessage() })
 
-// Kanal değiştirme
-document.querySelectorAll("#sidebar div").forEach(div => {
-  div.addEventListener("click", () => {
-    document.querySelector("#sidebar .active").classList.remove("active");
-    div.classList.add("active");
-    currentChannel = div.dataset.channel;
-    renderMessages();
-  });
-});
+loadMessages()
 
-renderMessages();
-
-// Örnek duyuru ekleme fonksiyonu (admin gibi)
-function addAnnouncement(text) {
-  channels.duyuru.push({user:"Admin", text});
-  saveChannel("duyuru");
-  if(currentChannel==="duyuru") renderMessages();
-}
-
-// GİZLİ: CTRL+SHIFT+F9 → tüm chat sıfırlama
-document.addEventListener("keydown", function(e) {
-  if(e.ctrlKey && e.shiftKey && e.key === "F9") {
-    CHANNELS.forEach(c => channels[c]=[]);
-    localStorage.clear();
-    addAnnouncement("CurseBot: Chat Yönetici Tarafından Sıfırlandı");
-    renderMessages();
-    console.log("CurseBot: Chat sıfırlandı!");
-  }
-});
+// Admin sıfırlama kısayolu
+document.addEventListener('keydown', e=>{
+    if(e.ctrlKey && e.shiftKey && e.code==='F9'){
+        supabase.from('messages').delete().neq('id', 0)
+        supabase.from('messages').insert([{username:'CurseBot', content:'Chat Yönetici Tarafından Sıfırlandı', is_admin:true}])
+    }
+})
 </script>
 
 </body>
