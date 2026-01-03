@@ -11,20 +11,22 @@
   #messages { flex:1; overflow-y:auto; padding:10px; background:#2e2e44; }
   #input { display:flex; }
   input { flex:1; padding:10px; border:none; border-radius:5px 0 0 5px; }
-  button { padding:10px; border:none; background:#4caf50; color:#fff; border-radius:0 5px 5px 0; cursor:pointer; }
+  button { padding:10px; border:none; background:#4caf50; color:#fff; border-radius:0 5px 5px 0; cursor:pointer; margin-top:5px; }
   .message { margin-bottom:5px; }
   .announcement { color:#ffcc00; font-weight:bold; }
   #channels { display:flex; background:#111133; }
   .channel { flex:1; text-align:center; padding:5px; cursor:pointer; }
   .active { background:#333366; }
+  #login button { width:200px; }
 </style>
 </head>
 <body>
 
 <div id="login">
   <h2>CurseStudio Chat</h2>
-  <input type="text" id="nick" placeholder="Nick yaz veya atla">
-  <button id="loginBtn">Giriş Yap / Random Nick Ata</button>
+  <input type="text" id="nick" placeholder="Nick yaz">
+  <button id="loginBtn">Giriş Yap</button>
+  <button id="skipBtn">Skip / Random Nick</button>
 </div>
 
 <div id="chat">
@@ -41,14 +43,14 @@
 
 <script type="module">
   import { initializeApp } from "https://www.gstatic.com/firebasejs/10.6.1/firebase-app.js";
-  import { getDatabase, ref, push, onChildAdded, set } from "https://www.gstatic.com/firebasejs/10.6.1/firebase-database.js";
+  import { getDatabase, ref, push, onChildAdded } from "https://www.gstatic.com/firebasejs/10.6.1/firebase-database.js";
 
   const firebaseConfig = {
     apiKey: "AIzaSyCnoxoPsUFx3f71SAcV7vd5ex_ZUmOk3e0",
     authDomain: "cursestudio-chat.firebaseapp.com",
     databaseURL: "https://cursestudio-chat-default-rtdb.europe-west1.firebasedatabase.app",
     projectId: "cursestudio-chat",
-    storageBucket: "cursestudio-chat.firebasestorage.app",
+    storageBucket: "cursestudio-chat.firebasedestorage.app",
     messagingSenderId: "6190203668",
     appId: "1:6190203668:web:bb7475428ab3f96c62b801"
   };
@@ -56,22 +58,33 @@
   const app = initializeApp(firebaseConfig);
   const db = getDatabase(app);
 
-  // --- Giriş / Nick ---
   const loginDiv = document.getElementById('login');
   const chatDiv = document.getElementById('chat');
   const nickInput = document.getElementById('nick');
   const loginBtn = document.getElementById('loginBtn');
+  const skipBtn = document.getElementById('skipBtn');
 
   let nick = '';
-  loginBtn.onclick = () => {
-    nick = nickInput.value.trim() || `User${Math.floor(Math.random()*9999)}`;
-    loginDiv.style.display = 'none';
-    chatDiv.style.display = 'flex';
+
+  function enterChat(userNick) {
+    nick = userNick;
+    loginDiv.style.display='none';
+    chatDiv.style.display='flex';
     localStorage.setItem('nick', nick);
     initChat();
+  }
+
+  loginBtn.onclick = () => {
+    const val = nickInput.value.trim();
+    if(val) enterChat(val);
+    else alert('Nick girmelisin veya Skip basabilirsin');
   };
 
-  // --- Channels ---
+  skipBtn.onclick = () => {
+    const randomNick = `User${Math.floor(Math.random()*9999)}`;
+    enterChat(randomNick);
+  };
+
   const channels = document.querySelectorAll('.channel');
   let activeChannel = 'chat';
   channels.forEach(ch => {
@@ -83,22 +96,19 @@
     }
   });
 
-  // --- Chat ---
   const messagesDiv = document.getElementById('messages');
   const msgInput = document.getElementById('msg');
   const sendBtn = document.getElementById('sendBtn');
 
   function initChat() {
     loadMessages();
-
     sendBtn.onclick = sendMessage;
     msgInput.addEventListener('keydown', e => { if(e.key==='Enter') sendMessage(); });
 
-    // Local Storage sıfırlama kısayolu
     document.addEventListener('keydown', e => {
       if(e.ctrlKey && e.shiftKey && e.key==='F9') {
         localStorage.clear();
-        push(ref(db, 'announcement'), {nick:'CurseBot', text:'Chat Yönetici Tarafından Sıfırlandı', time:Date.now()});
+        push(ref(db,'announcement'), {nick:'CurseBot', text:'Chat Yönetici Tarafından Sıfırlandı', time:Date.now()});
         messagesDiv.innerHTML='';
       }
     });
@@ -107,7 +117,7 @@
   function sendMessage() {
     const text = msgInput.value.trim();
     if(!text) return;
-    if(activeChannel==='announcement') return; // duyuru kanalına yazamasın
+    if(activeChannel==='announcement') return;
     push(ref(db, activeChannel), {nick,text,time:Date.now()});
     msgInput.value='';
   }
@@ -125,6 +135,7 @@
       messagesDiv.scrollTop = messagesDiv.scrollHeight;
     });
   }
+
 </script>
 </body>
 </html>
