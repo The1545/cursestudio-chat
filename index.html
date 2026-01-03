@@ -12,7 +12,7 @@ body {
   margin: 0;
   padding: 0;
 }
-#loginScreen, #chatScreen {display: none;}
+#loginScreen, #chatScreen {display:none;}
 #loginScreen {display:flex; height:100vh; justify-content:center; align-items:center; flex-direction:column;}
 #chatScreen {display:flex; flex-direction:column; height:100vh;}
 input, button {padding:8px; margin:5px; border-radius:5px; border:none;}
@@ -54,8 +54,8 @@ const firebaseConfig = {
 
 firebase.initializeApp(firebaseConfig);
 const db = firebase.database();
-let nickname = "";
 
+let nickname = "";
 const loginScreen = document.getElementById("loginScreen");
 const chatScreen = document.getElementById("chatScreen");
 const messagesEl = document.getElementById("messages");
@@ -65,16 +65,18 @@ const enterChat = document.getElementById("enterChat");
 const nickInput = document.getElementById("nickname");
 
 // Giriş yap
-enterChat.onclick = () => {
-  nickname = nickInput.value.trim() || "Anonim";
+enterChat.addEventListener("click", ()=>{
+  const nick = nickInput.value.trim();
+  if(!nick) { alert("Lütfen bir nick girin"); return; }
+  nickname = nick;
   loginScreen.style.display = "none";
   chatScreen.style.display = "flex";
   listenMessages();
-};
+});
 
 // Mesaj gönder
-sendBtn.onclick = sendMessage;
-msgInput.addEventListener("keypress", e => {if(e.key==="Enter") sendMessage();});
+sendBtn.addEventListener("click", sendMessage);
+msgInput.addEventListener("keypress", e=>{if(e.key==="Enter") sendMessage();});
 
 function sendMessage(){
   const text = msgInput.value.trim();
@@ -97,12 +99,12 @@ function listenMessages(){
   });
 }
 
-// Duyuru ekleme (sadece server/admin kullanacak)
+// Duyuru ekleme (sadece admin/server kullanacak)
 function addAnnouncement(text){
   db.ref("messages").push({nick:"CurseBot", text, time:Date.now(), channel:"announcement"});
 }
 
-// Local Storage reset kısa yolu
+// Local Storage reset kısayolu
 document.addEventListener("keydown", e=>{
   if(e.ctrlKey && e.shiftKey && e.key==="F9"){
     localStorage.clear();
