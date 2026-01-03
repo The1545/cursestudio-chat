@@ -5,111 +5,111 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>CurseStudio Chat</title>
 <style>
-body { font-family: Arial, sans-serif; margin:0; background:#1e1e2f; color:#fff; display:flex; flex-direction:column; height:100vh; }
-header { background:#111; padding:1rem; text-align:center; font-size:1.5rem; font-weight:bold; }
-#chat { flex:1; overflow-y:auto; padding:1rem; display:flex; flex-direction:column; gap:0.5rem; }
-.message { padding:0.5rem 1rem; border-radius:8px; max-width:70%; word-wrap:break-word; }
-.own { background:#4a90e2; align-self:flex-end; }
-.other { background:#333; align-self:flex-start; }
-.system { background:#ff5555; align-self:center; font-style:italic; }
-#input-area { display:flex; padding:0.5rem; background:#111; }
-#input-area input { flex:1; padding:0.5rem; border:none; border-radius:5px; margin-right:0.5rem; }
-#input-area button { padding:0.5rem 1rem; border:none; border-radius:5px; background:#4a90e2; color:#fff; cursor:pointer; }
-#nicknameModal { position:fixed; inset:0; background:rgba(0,0,0,0.9); display:flex; justify-content:center; align-items:center; flex-direction:column; color:#fff; }
-#nicknameModal input { padding:0.5rem; border-radius:5px; border:none; margin-bottom:0.5rem; }
+body {
+  font-family: Arial, sans-serif;
+  background: #1e1e2f;
+  color: #fff;
+  margin: 0;
+  padding: 0;
+}
+#loginScreen, #chatScreen {display: none;}
+#loginScreen {display:flex; height:100vh; justify-content:center; align-items:center; flex-direction:column;}
+#chatScreen {display:flex; flex-direction:column; height:100vh;}
+input, button {padding:8px; margin:5px; border-radius:5px; border:none;}
+#messages {flex:1; overflow-y:auto; padding:10px; background:#2c2c3f;}
+.message {margin:5px 0; padding:5px 10px; border-radius:5px; background:#3a3a50;}
+.announcement {background:#ff4c4c;}
+#inputContainer {display:flex;}
+#inputContainer input {flex:1;}
 </style>
 </head>
 <body>
 
-<header>CurseStudio Chat</header>
-
-<div id="chat"></div>
-
-<div id="input-area">
-    <input type="text" id="message" placeholder="Mesaj yaz...">
-    <button id="send">Gönder</button>
+<div id="loginScreen">
+  <h1>CurseStudio Chat</h1>
+  <input type="text" id="nickname" placeholder="Nickinizi girin">
+  <button id="enterChat">Giriş Yap</button>
 </div>
 
-<div id="nicknameModal">
-    <h2>Nick Belirle</h2>
-    <input type="text" id="nicknameInput" placeholder="Nick">
-    <button id="setNick">Başla</button>
+<div id="chatScreen">
+  <div id="messages"></div>
+  <div id="inputContainer">
+    <input type="text" id="msgInput" placeholder="Mesaj yazın...">
+    <button id="sendBtn">Gönder</button>
+  </div>
 </div>
 
+<script src="https://www.gstatic.com/firebasejs/9.24.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.24.0/firebase-database-compat.js"></script>
 <script>
-// Kısa yol ve nick sistemi localStorage ile
-let nickname = localStorage.getItem('nick') || ''
-const chat = document.getElementById('chat')
-const input = document.getElementById('message')
-const sendBtn = document.getElementById('send')
-const nicknameModal = document.getElementById('nicknameModal')
-const nicknameInput = document.getElementById('nicknameInput')
-const setNickBtn = document.getElementById('setNick')
+const firebaseConfig = {
+  apiKey: "FIREBASE_API_KEY",
+  authDomain: "FIREBASE_PROJECT_ID.firebaseapp.com",
+  databaseURL: "https://FIREBASE_PROJECT_ID-default-rtdb.firebaseio.com",
+  projectId: "FIREBASE_PROJECT_ID",
+  storageBucket: "FIREBASE_PROJECT_ID.appspot.com",
+  messagingSenderId: "SENDER_ID",
+  appId: "APP_ID"
+};
 
-// Eğer nick yoksa modal göster
-if(!nickname){
-    nicknameModal.style.display='flex'
-} else {
-    nicknameModal.style.display='none'
-}
+firebase.initializeApp(firebaseConfig);
+const db = firebase.database();
+let nickname = "";
 
-// Nick belirleme
-setNickBtn.onclick = ()=>{
-    if(nicknameInput.value.trim()){
-        nickname = nicknameInput.value.trim()
-        localStorage.setItem('nick', nickname)
-        nicknameModal.style.display='none'
-        loadMessages()
-    }
-}
+const loginScreen = document.getElementById("loginScreen");
+const chatScreen = document.getElementById("chatScreen");
+const messagesEl = document.getElementById("messages");
+const msgInput = document.getElementById("msgInput");
+const sendBtn = document.getElementById("sendBtn");
+const enterChat = document.getElementById("enterChat");
+const nickInput = document.getElementById("nickname");
 
-// Mock backend: localStorage mesajlarıyla simüle ediyoruz
-let messages = JSON.parse(localStorage.getItem('messages')||'[]')
+// Giriş yap
+enterChat.onclick = () => {
+  nickname = nickInput.value.trim() || "Anonim";
+  loginScreen.style.display = "none";
+  chatScreen.style.display = "flex";
+  listenMessages();
+};
 
 // Mesaj gönder
-sendBtn.onclick = sendMessage
-input.addEventListener('keypress', e=>{ if(e.key==='Enter') sendMessage() })
+sendBtn.onclick = sendMessage;
+msgInput.addEventListener("keypress", e => {if(e.key==="Enter") sendMessage();});
 
 function sendMessage(){
-    const val = input.value.trim()
-    if(!val) return
-    messages.push({username:nickname, content:val, channel:'chat', timestamp:Date.now()})
-    localStorage.setItem('messages', JSON.stringify(messages))
-    input.value=''
-    renderMessages()
+  const text = msgInput.value.trim();
+  if(!text) return;
+  db.ref("messages").push({nick:nickname, text, time:Date.now(), channel:"chat"});
+  msgInput.value = "";
 }
 
-// Mesajları göster
-function renderMessages(){
-    chat.innerHTML=''
-    messages.forEach(msg=>{
-        const div = document.createElement('div')
-        div.textContent = `${msg.username}: ${msg.content}`
-        div.className = msg.channel==='announcement' ? 'system' : (msg.username===nickname ? 'own':'other')
-        chat.appendChild(div)
-    })
-    chat.scrollTop = chat.scrollHeight
-}
-
-// Admin reset: Ctrl+Shift+F9
-document.addEventListener('keydown', e=>{
-    if(e.ctrlKey && e.shiftKey && e.code==='F9'){
-        messages=[]
-        messages.push({username:'CurseBot', content:'Chat Yönetici Tarafından Sıfırlandı', channel:'announcement', timestamp:Date.now()})
-        localStorage.setItem('messages', JSON.stringify(messages))
-        renderMessages()
+// Mesajları dinle
+function listenMessages(){
+  db.ref("messages").on("child_added", snap=>{
+    const msg = snap.val();
+    if(msg.channel==="chat" || msg.channel==="announcement"){
+      const div = document.createElement("div");
+      div.className = "message" + (msg.channel==="announcement"?" announcement":"");
+      div.textContent = msg.channel==="announcement" ? msg.text : `${msg.nick}: ${msg.text}`;
+      messagesEl.appendChild(div);
+      messagesEl.scrollTop = messagesEl.scrollHeight;
     }
-})
+  });
+}
 
-// İlk yükleme
-renderMessages()
+// Duyuru ekleme (sadece server/admin kullanacak)
+function addAnnouncement(text){
+  db.ref("messages").push({nick:"CurseBot", text, time:Date.now(), channel:"announcement"});
+}
 
-// Simüle gerçek zamanlı: 1 saniyede bir güncelle
-setInterval(()=>{
-    messages = JSON.parse(localStorage.getItem('messages')||'[]')
-    renderMessages()
-},1000)
+// Local Storage reset kısa yolu
+document.addEventListener("keydown", e=>{
+  if(e.ctrlKey && e.shiftKey && e.key==="F9"){
+    localStorage.clear();
+    addAnnouncement("CurseBot: Chat Yönetici Tarafından Sıfırlandı");
+    location.reload();
+  }
+});
 </script>
-
 </body>
 </html>
