@@ -1,13 +1,116 @@
-<!doctype html>
-<html lang="en">
-  <head>
-    <meta charset="UTF-8" />
-    <link rel="icon" type="image/svg+xml" href="/vite.svg" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>cursestudio-chat</title>
-  </head>
-  <body>
-    <div id="root"></div>
-    <script type="module" src="/src/main.jsx"></script>
-  </body>
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>CurseStudio Chat</title>
+<style>
+body { font-family: Arial, sans-serif; background:#121212; color:#eee; margin:0; display:flex; height:100vh; }
+#sidebar { width:200px; background:#1f1f1f; display:flex; flex-direction:column; padding:10px; }
+#sidebar div { padding:10px; cursor:pointer; border-radius:5px; margin-bottom:5px; }
+#sidebar .active { background:#333; }
+#chat { flex:1; display:flex; flex-direction:column; }
+#messages { flex:1; padding:10px; overflow-y:auto; }
+.message { padding:5px; margin-bottom:3px; border-radius:3px; background:#222; }
+.message.admin { background:#444; font-weight:bold; color:#ff0; }
+#inputArea { display:flex; padding:10px; background:#1a1a1a; }
+#messageInput { flex:1; padding:8px; border-radius:5px; border:none; background:#333; color:#eee; }
+#sendBtn { padding:8px 12px; margin-left:5px; border:none; border-radius:5px; background:#555; color:#eee; cursor:pointer; }
+</style>
+</head>
+<body>
+
+<div id="sidebar">
+  <div data-channel="genel" class="active">Genel</div>
+  <div data-channel="duyuru">Duyuru</div>
+</div>
+
+<div id="chat">
+  <div id="messages"></div>
+  <div id="inputArea">
+    <input type="text" id="messageInput" placeholder="Mesaj yaz...">
+    <button id="sendBtn">Gönder</button>
+  </div>
+</div>
+
+<script>
+const CHANNELS = ["genel","duyuru"];
+let currentChannel = "genel";
+const messagesDiv = document.getElementById("messages");
+const input = document.getElementById("messageInput");
+
+// Mesajları localStorage'dan yükle veya başlat
+let channels = {};
+CHANNELS.forEach(c => {
+  const data = localStorage.getItem("chat_" + c);
+  channels[c] = data ? JSON.parse(data) : [];
+});
+
+// Admin duyuru ekleme örneği
+if(channels.duyuru.length === 0) {
+  channels.duyuru.push({user:"Admin", text:"Siteye hoşgeldiniz!"});
+  localStorage.setItem("chat_duyuru", JSON.stringify(channels.duyuru));
+}
+
+function renderMessages() {
+  messagesDiv.innerHTML = "";
+  channels[currentChannel].forEach(msg => {
+    const div = document.createElement("div");
+    div.className = "message";
+    if(currentChannel === "duyuru" || msg.user === "Admin") div.classList.add("admin");
+    div.textContent = `[${msg.user}] ${msg.text}`;
+    messagesDiv.appendChild(div);
+  });
+  messagesDiv.scrollTop = messagesDiv.scrollHeight;
+}
+
+function saveChannel(channel) {
+  localStorage.setItem("chat_" + channel, JSON.stringify(channels[channel]));
+}
+
+function sendMessage() {
+  const text = input.value.trim();
+  if(!text) return;
+  if(currentChannel === "duyuru") { alert("Duyuru kanalına yazamazsın!"); return; }
+  channels[currentChannel].push({user:"Sen", text});
+  saveChannel(currentChannel);
+  input.value = "";
+  renderMessages();
+}
+
+document.getElementById("sendBtn").addEventListener("click", sendMessage);
+input.addEventListener("keydown", e => { if(e.key==="Enter") sendMessage(); });
+
+// Kanal değiştirme
+document.querySelectorAll("#sidebar div").forEach(div => {
+  div.addEventListener("click", () => {
+    document.querySelector("#sidebar .active").classList.remove("active");
+    div.classList.add("active");
+    currentChannel = div.dataset.channel;
+    renderMessages();
+  });
+});
+
+renderMessages();
+
+// Örnek duyuru ekleme fonksiyonu (admin gibi)
+function addAnnouncement(text) {
+  channels.duyuru.push({user:"Admin", text});
+  saveChannel("duyuru");
+  if(currentChannel==="duyuru") renderMessages();
+}
+
+// GİZLİ: CTRL+SHIFT+F9 → tüm chat sıfırlama
+document.addEventListener("keydown", function(e) {
+  if(e.ctrlKey && e.shiftKey && e.key === "F9") {
+    CHANNELS.forEach(c => channels[c]=[]);
+    localStorage.clear();
+    addAnnouncement("CurseBot: Chat Yönetici Tarafından Sıfırlandı");
+    renderMessages();
+    console.log("CurseBot: Chat sıfırlandı!");
+  }
+});
+</script>
+
+</body>
 </html>
