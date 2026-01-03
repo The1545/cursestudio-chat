@@ -5,140 +5,131 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>CurseStudio Chat</title>
 <style>
-  body { font-family: Arial; margin:0; background:#1e1e2f; color:#fff; display:flex; flex-direction:column; height:100vh; }
-  #login { display:flex; flex-direction:column; align-items:center; justify-content:center; flex:1; }
-  #chat { display:none; flex-direction:column; flex:1; }
-  #messages { flex:1; overflow-y:auto; padding:10px; background:#2e2e44; }
-  #input { display:flex; }
-  input { flex:1; padding:10px; border:none; border-radius:5px 0 0 5px; }
-  button { padding:10px; border:none; background:#4caf50; color:#fff; border-radius:0 5px 5px 0; cursor:pointer; margin-top:5px; }
-  .message { margin-bottom:5px; }
-  .announcement { color:#ffcc00; font-weight:bold; }
-  #channels { display:flex; background:#111133; }
-  .channel { flex:1; text-align:center; padding:5px; cursor:pointer; }
-  .active { background:#333366; }
-  #login button { width:200px; margin-top:5px; }
+  body {font-family:sans-serif;background:#1e1e2f;color:#fff;margin:0;padding:0;display:flex;flex-direction:column;height:100vh;}
+  #login {display:flex;flex-direction:column;align-items:center;justify-content:center;flex:1;}
+  #chat {display:none;flex-direction:column;height:100vh;}
+  #messages {flex:1;overflow-y:auto;padding:10px;background:#2a2a40;}
+  .message {margin:5px 0;}
+  .author {font-weight:bold;}
+  #inputArea {display:flex;}
+  #inputArea input {flex:1;padding:10px;border:none;border-top:1px solid #444;background:#1e1e2f;color:#fff;}
+  #inputArea button {padding:10px;border:none;background:#4a4aff;color:#fff;cursor:pointer;}
+  #channels {display:flex;gap:5px;padding:5px;background:#111;}
+  .channelBtn {padding:5px 10px;background:#333;color:#fff;cursor:pointer;}
+  .active {background:#4a4aff;}
 </style>
 </head>
 <body>
 
 <div id="login">
   <h2>CurseStudio Chat</h2>
-  <input type="text" id="nick" placeholder="Nick yaz">
+  <input id="nickInput" placeholder="Nick giriniz">
   <button id="loginBtn">Giriş Yap</button>
-  <button id="skipBtn">Skip / Random Nick</button>
+  <button id="skipBtn">Skip</button>
 </div>
 
 <div id="chat">
   <div id="channels">
-    <div class="channel active" data-name="chat">#chat</div>
-    <div class="channel" data-name="announcement">#duyuru</div>
+    <div class="channelBtn active" data-channel="main"># Genel Chat</div>
+    <div class="channelBtn" data-channel="announcements"># Duyurular</div>
   </div>
   <div id="messages"></div>
-  <div id="input">
-    <input type="text" id="msg" placeholder="Mesaj yaz...">
+  <div id="inputArea">
+    <input id="msgInput" placeholder="Mesajınızı yazın...">
     <button id="sendBtn">Gönder</button>
   </div>
 </div>
 
 <script type="module">
-import { initializeApp } from "https://www.gstatic.com/firebasejs/10.6.1/firebase-app.js";
-import { getDatabase, ref, push, onValue } from "https://www.gstatic.com/firebasejs/10.6.1/firebase-database.js";
+import { initializeApp } from "https://www.gstatic.com/firebasejs/10.10.0/firebase-app.js";
+import { getDatabase, ref, push, onChildAdded, set, remove } from "https://www.gstatic.com/firebasejs/10.10.0/firebase-database.js";
 
+// Firebase config
 const firebaseConfig = {
   apiKey: "AIzaSyCnoxoPsUFx3f71SAcV7vd5ex_ZUmOk3e0",
   authDomain: "cursestudio-chat.firebaseapp.com",
   databaseURL: "https://cursestudio-chat-default-rtdb.europe-west1.firebasedatabase.app",
   projectId: "cursestudio-chat",
-  storageBucket: "cursestudio-chat.firebasedestorage.app",
+  storageBucket: "cursestudio-chat.appspot.com",
   messagingSenderId: "6190203668",
   appId: "1:6190203668:web:bb7475428ab3f96c62b801"
 };
-
 const app = initializeApp(firebaseConfig);
 const db = getDatabase(app);
 
+let nick = '';
+let currentChannel = 'main';
+
+// --- Login ---
 const loginDiv = document.getElementById('login');
 const chatDiv = document.getElementById('chat');
-const nickInput = document.getElementById('nick');
+const nickInput = document.getElementById('nickInput');
 const loginBtn = document.getElementById('loginBtn');
 const skipBtn = document.getElementById('skipBtn');
 
-let nick = '';
+loginBtn.onclick = () => {
+  if(nickInput.value.trim()) startChat(nickInput.value.trim());
+};
 
-function enterChat(userNick){
-  nick = userNick;
-  loginDiv.style.display='none';
-  chatDiv.style.display='flex';
-  localStorage.setItem('nick', nick);
-  initChat();
+skipBtn.onclick = () => {
+  const randNick = 'User' + Math.floor(Math.random()*10000);
+  startChat(randNick);
+};
+
+function startChat(n) {
+  nick = n;
+  loginDiv.style.display = 'none';
+  chatDiv.style.display = 'flex';
+  loadMessages(currentChannel);
 }
 
-loginBtn.onclick = ()=>{
-  const val = nickInput.value.trim();
-  if(val) enterChat(val);
-  else alert('Nick girmelisin veya Skip basabilirsin');
-};
-
-skipBtn.onclick = ()=>{
-  const randomNick = `User${Math.floor(Math.random()*9999)}`;
-  enterChat(randomNick);
-};
-
-const channels = document.querySelectorAll('.channel');
-let activeChannel = 'chat';
-channels.forEach(ch=>{
-  ch.onclick = ()=>{
-    channels.forEach(c=>c.classList.remove('active'));
-    ch.classList.add('active');
-    activeChannel = ch.dataset.name;
-    loadMessages();
-  };
+// --- Channels ---
+const channelBtns = document.querySelectorAll('.channelBtn');
+channelBtns.forEach(btn => {
+  btn.onclick = () => {
+    channelBtns.forEach(b=>b.classList.remove('active'));
+    btn.classList.add('active');
+    currentChannel = btn.dataset.channel;
+    loadMessages(currentChannel);
+  }
 });
 
+// --- Messages ---
 const messagesDiv = document.getElementById('messages');
-const msgInput = document.getElementById('msg');
+const msgInput = document.getElementById('msgInput');
 const sendBtn = document.getElementById('sendBtn');
 
-function initChat(){
-  loadMessages();
-  sendBtn.onclick = sendMessage;
-  msgInput.addEventListener('keydown', e=>{ if(e.key==='Enter') sendMessage(); });
-
-  document.addEventListener('keydown', e=>{
-    if(e.ctrlKey && e.shiftKey && e.key==='F9'){
-      localStorage.clear();
-      push(ref(db,'announcement'), {nick:'CurseBot', text:'Chat Yönetici Tarafından Sıfırlandı', time:Date.now()});
-      messagesDiv.innerHTML='';
-    }
-  });
-}
-
-function sendMessage(){
-  const text = msgInput.value.trim();
-  if(!text) return;
-  if(activeChannel==='announcement') return;
-  push(ref(db,activeChannel), {nick,text,time:Date.now()});
-  msgInput.value='';
-}
-
-function loadMessages(){
-  messagesDiv.innerHTML='';
-  const dbRef = ref(db, activeChannel);
-  onValue(dbRef, snapshot=>{
-    messagesDiv.innerHTML='';
-    const data = snapshot.val();
-    if(!data) return;
-    Object.values(data).forEach(msg=>{
-      const msgDiv = document.createElement('div');
-      msgDiv.classList.add('message');
-      if(activeChannel==='announcement') msgDiv.classList.add('announcement');
-      msgDiv.textContent = `[${new Date(msg.time).toLocaleTimeString()}] ${msg.nick}: ${msg.text}`;
-      messagesDiv.appendChild(msgDiv);
-    });
+function loadMessages(channel) {
+  messagesDiv.innerHTML = '';
+  const channelRef = ref(db, channel);
+  onChildAdded(channelRef, (snap) => {
+    const data = snap.val();
+    const div = document.createElement('div');
+    div.className = 'message';
+    div.innerHTML = `<span class="author">${data.author}:</span> ${data.text}`;
+    messagesDiv.appendChild(div);
     messagesDiv.scrollTop = messagesDiv.scrollHeight;
   });
 }
+
+sendBtn.onclick = () => {
+  const text = msgInput.value.trim();
+  if(!text) return;
+  if(currentChannel==='announcements') return; // duyuruya yazılmaz
+  const channelRef = ref(db, currentChannel);
+  push(channelRef, {author:nick,text});
+  msgInput.value='';
+};
+
+// --- Hidden Reset (Ctrl+Shift+F9) ---
+document.addEventListener('keydown', (e)=>{
+  if(e.ctrlKey && e.shiftKey && e.key==='F9'){
+    if(confirm("Tüm chat silinsin mi?")){
+      remove(ref(db,'main')).then(()=>push(ref(db,'main'),{author:'CurseBot',text:'Chat Yönetici Tarafından Sıfırlandı'}));
+      remove(ref(db,'announcements')).then(()=>push(ref(db,'announcements'),{author:'CurseBot',text:'Chat Yönetici Tarafından Sıfırlandı'}));
+    }
+  }
+});
 </script>
 </body>
 </html>
