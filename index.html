@@ -5,60 +5,26 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>CurseStudio Chat</title>
 <style>
-body{margin:0;font-family:sans-serif;background:#111;color:#eee;display:flex;flex-direction:column;height:100vh;}
-#login,#chat{display:none;flex:1;align-items:center;justify-content:center;flex-direction:column;}
-input,button,textarea{margin:5px;padding:8px;border-radius:4px;border:none}
-button{cursor:pointer;background:#222;color:#eee}
-#tabs{display:flex;margin-top:10px;}
-.tab{padding:10px 20px;cursor:pointer;background:#222;margin-right:2px;border-radius:4px;}
-.tab.active{background:#444;}
-.channel{display:none;flex-direction:column;width:90vw;max-width:800px;}
-#messages,#announceMessages{height:60vh;overflow-y:auto;background:#222;padding:10px;border-radius:5px;margin-top:10px;}
-.message{margin-bottom:5px;padding:5px;border-radius:3px}
-.admin{color:#0f0;font-weight:bold}
-textarea{width:100%;border-radius:4px;}
-.file-input{margin-top:5px}
+    body { margin:0; font-family:sans-serif; background:#2f3136; color:#dcddde; display:flex; height:100vh; }
+    #channels { width:200px; background:#202225; padding:10px; display:flex; flex-direction:column; }
+    #channels button { margin:5px 0; background:#36393f; color:#dcddde; border:none; padding:8px; cursor:pointer; text-align:left; }
+    #chat-container { flex:1; display:flex; flex-direction:column; }
+    #messages { flex:1; padding:10px; overflow-y:auto; }
+    .message { margin:5px 0; }
+    .message .user { font-weight:bold; margin-right:5px; }
+    #input-container { display:flex; background:#40444b; padding:5px; }
+    #input-container input[type=text] { flex:1; padding:8px; border:none; border-radius:4px; margin-right:5px; }
+    #input-container input[type=file] { display:none; }
+    #input-container button { padding:8px; border:none; border-radius:4px; background:#7289da; color:#fff; cursor:pointer; }
+    #login { position:absolute; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.9); display:flex; justify-content:center; align-items:center; flex-direction:column; color:#fff; }
+    #login input { padding:8px; margin:5px; border-radius:4px; border:none; width:200px; }
 </style>
-</head>
-<body>
-
-<div id="login">
-<h2>CurseStudio Chat</h2>
-<input type="text" id="nick" placeholder="Nick" maxlength="20">
-<input type="password" id="pass" placeholder="Şifre">
-<button id="loginBtn">Giriş Yap</button>
-<button id="registerBtn">Kayıt Ol</button>
-<button id="skipBtn">Random Nick ile Gir</button>
-</div>
-
-<div id="chat">
-<h2>Merhaba <span id="nickShow"></span></h2>
-
-<div id="tabs">
-  <div class="tab active" data-channel="chat">Genel Chat</div>
-  <div class="tab" data-channel="duyuru">#Duyurular</div>
-</div>
-
-<div id="chatContainer">
-  <div id="chatChannel" class="channel" style="display:flex;flex-direction:column;">
-    <div id="messages"></div>
-  </div>
-  <div id="announceChannel" class="channel">
-    <div id="announceMessages"></div>
-  </div>
-</div>
-
-<textarea id="msgInput" placeholder="Mesajınızı yazın..." maxlength="10000"></textarea>
-<input type="file" id="fileInput" class="file-input">
-<button id="sendBtn">Gönder</button>
-<button id="logoutBtn">Çıkış Yap</button>
-</div>
-
 <script type="module">
-import { initializeApp } from "https://www.gstatic.com/firebasejs/10.3.0/firebase-app.js";
-import { getDatabase, ref, push, onChildAdded, remove, set, get } from "https://www.gstatic.com/firebasejs/10.3.0/firebase-database.js";
-import { getStorage, ref as sRef, uploadBytes, getDownloadURL } from "https://www.gstatic.com/firebasejs/10.3.0/firebase-storage.js";
+import { initializeApp } from "https://www.gstatic.com/firebasejs/10.1.0/firebase-app.js";
+import { getDatabase, ref, push, onChildAdded, set, get, child, remove } from "https://www.gstatic.com/firebasejs/10.1.0/firebase-database.js";
+import { getStorage, ref as sref, uploadBytes, getDownloadURL } from "https://www.gstatic.com/firebasejs/10.1.0/firebase-storage.js";
 
+// Firebase config
 const firebaseConfig = {
   apiKey: "AIzaSyCnoxoPsUFx3f71SAcV7vd5ex_ZUmOk3e0",
   authDomain: "cursestudio-chat.firebaseapp.com",
@@ -68,100 +34,133 @@ const firebaseConfig = {
   messagingSenderId: "6190203668",
   appId: "1:6190203668:web:bb7475428ab3f96c62b801"
 };
-
 const app = initializeApp(firebaseConfig);
 const db = getDatabase(app);
 const storage = getStorage(app);
 
-let currentNick = localStorage.getItem('nick') || "";
-let currentPass = localStorage.getItem('pass') || "";
+// DOM
+const loginDiv = document.getElementById("login");
+const nickInput = document.getElementById("nick");
+const skipBtn = document.getElementById("skip");
+const loginBtn = document.getElementById("login-btn");
+const messagesDiv = document.getElementById("messages");
+const msgInput = document.getElementById("msg");
+const sendBtn = document.getElementById("send");
+const fileInput = document.getElementById("file");
+const channelsDiv = document.getElementById("channels");
+
+let nick = localStorage.getItem("nick") || "";
+
+// Kanallar
+const channels = ["#Genel", "#Duyurular"];
+let currentChannel = channels[0];
+
+// Admin
 const adminNick = "The1545";
-const allowedChars = /[a-zA-Z0-9ğüşi.<>|"é!'^+%&/()=?_\-*#$½{}\[\]\\| ]/;
 
-const loginDiv=document.getElementById('login');
-const chatDiv=document.getElementById('chat');
-const nickInput=document.getElementById('nick');
-const passInput=document.getElementById('pass');
-const loginBtn=document.getElementById('loginBtn');
-const registerBtn=document.getElementById('registerBtn');
-const skipBtn=document.getElementById('skipBtn');
-const nickShow=document.getElementById('nickShow');
-const messagesDiv=document.getElementById('messages');
-const announceDiv=document.getElementById('announceMessages');
-const msgInput=document.getElementById('msgInput');
-const sendBtn=document.getElementById('sendBtn');
-const logoutBtn=document.getElementById('logoutBtn');
-const fileInput=document.getElementById('fileInput');
-const tabs=document.querySelectorAll('.tab');
-const chatChannelDiv=document.getElementById('chatChannel');
-const announceChannelDiv=document.getElementById('announceChannel');
+// Login
+function login(user) {
+  nick = user;
+  localStorage.setItem("nick", nick);
+  loginDiv.style.display = "none";
+  loadMessages();
+}
+if(nick) login(nick);
 
-function validNick(nick){return nick.length && [...nick].every(c=>allowedChars.test(c))}
-async function register(){let nick=nickInput.value.trim(),pass=passInput.value;if(!validNick(nick)){alert("Nick geçersiz");return;}await set(ref(db,'users/'+nick),{pass});loginNick(nick,pass);}
-async function loginNick(nick,pass){let snap=await get(ref(db,'users/'+nick));if(snap.exists()&&snap.val().pass===pass||nick===currentNick){localStorage.setItem('nick',nick);localStorage.setItem('pass',pass);currentNick=nick;currentPass=pass;nickShow.textContent=nick;loginDiv.style.display='none';chatDiv.style.display='flex';initChat();}else alert("Hatalı nick veya şifre");}
-function skipLogin(){let nick="User"+Math.floor(Math.random()*10000);currentNick=nick;nickShow.textContent=nick;loginDiv.style.display='none';chatDiv.style.display='flex';initChat();}
+loginBtn.onclick = ()=>{ if(nickInput.value.trim()) login(nickInput.value.trim()); }
+skipBtn.onclick = ()=>{
+  const randomNick = "Guest"+Math.floor(Math.random()*1000);
+  login(randomNick);
+}
 
-function initChat(){
-  const msgRef=ref(db,'messages');
-  onChildAdded(msgRef,(data)=>{
-    const m=data.val();
-    if(m.channel=='duyuru'&&currentNick!==adminNick) return;
-    displayMessage(m);
+// Kanalları göster
+channelsDiv.innerHTML = "";
+channels.forEach(ch=>{
+  const btn = document.createElement("button");
+  btn.textContent = ch;
+  btn.onclick = ()=>{ currentChannel = ch; messagesDiv.innerHTML=""; loadMessages(); }
+  channelsDiv.appendChild(btn);
+});
+
+// Mesajları yükle
+function loadMessages() {
+  const chRef = ref(db, "channels/"+currentChannel);
+  messagesDiv.innerHTML="";
+  onChildAdded(chRef, (data)=>{
+    const d = data.val();
+    const div = document.createElement("div");
+    div.className="message";
+    if(d.file){
+      div.innerHTML = `<span class="user">${d.user}:</span> <a href="${d.file}" target="_blank"><img src="${d.file}" style="max-width:200px;max-height:200px;"></a>`;
+    } else {
+      div.innerHTML = `<span class="user">${d.user}:</span> ${d.text}`;
+    }
+    messagesDiv.appendChild(div);
+    messagesDiv.scrollTop = messagesDiv.scrollHeight;
   });
 }
 
-function displayMessage(m){
-  const div=document.createElement('div');
-  div.className='message';
-  if(m.nick===adminNick) div.classList.add('admin');
-  let content=m.text;
-  if(m.fileUrl) content+='<br><a href="'+m.fileUrl+'" target="_blank">📎 Dosya</a>';
-  div.innerHTML=`<strong>${m.nick}:</strong> ${content}`;
-  if(m.channel==='duyuru') announceDiv.appendChild(div); else messagesDiv.appendChild(div);
-  messagesDiv.scrollTop=messagesDiv.scrollHeight;
-  announceDiv.scrollTop=announceDiv.scrollHeight;
+// Gönder
+sendBtn.onclick = ()=>{
+  const text = msgInput.value.trim();
+  if(!text && !fileInput.files[0]) return;
+
+  if(fileInput.files[0]){
+    const f = fileInput.files[0];
+    const stRef = sref(storage, `files/${Date.now()}_${f.name}`);
+    uploadBytes(stRef,f).then(snap=>{
+      getDownloadURL(stRef).then(url=>{
+        push(ref(db,"channels/"+currentChannel),{
+          user:nick,
+          file:url,
+          time:Date.now()
+        });
+      });
+    });
+  }
+
+  if(text){
+    if(text.length>10000) text = text.substring(0,10000);
+    push(ref(db,"channels/"+currentChannel),{
+      user:nick,
+      text:text,
+      time:Date.now()
+    });
+  }
+  msgInput.value="";
+  fileInput.value="";
 }
 
-sendBtn.onclick=async()=>{
-  let text=msgInput.value.trim(); if(!text&&!fileInput.files.length)return;
-  if(text.length>10000){alert("Max 10000 karakter");return;}
-  let channel='chat'; if(currentNick===adminNick&&activeChannel==='duyuru') channel='duyuru';
-  let msg={nick:currentNick,text,channel};
-  if(fileInput.files.length){
-    let file=fileInput.files[0];
-    let storageRef=sRef(storage,'files/'+Date.now()+"_"+file.name);
-    await uploadBytes(storageRef,file);
-    msg.fileUrl=await getDownloadURL(storageRef);
-  }
-  push(ref(db,'messages'),msg);
-  msgInput.value='';fileInput.value='';
-}
-
-logoutBtn.onclick=()=>{localStorage.removeItem('nick');localStorage.removeItem('pass');location.reload();}
-loginBtn.onclick=()=>loginNick(nickInput.value,passInput.value);
-registerBtn.onclick=register;
-skipBtn.onclick=skipLogin;
-
-// Ctrl+Shift+F9 reset
-document.addEventListener('keydown',e=>{
-  if(e.ctrlKey&&e.shiftKey&&e.key==='F9'&&currentNick===adminNick){
-    remove(ref(db,'messages')).then(()=>{push(ref(db,'messages'),{nick:'CurseBot',text:'Chat Yönetici Tarafından Sıfırlandı',channel:'chat'});location.reload();});
+// LocalStorage sıfırla
+document.addEventListener("keydown",(e)=>{
+  if(e.ctrlKey && e.shiftKey && e.key==="F9"){
+    localStorage.clear();
+    push(ref(db,"channels/"+currentChannel),{
+      user:"CurseBot",
+      text:"Chat Yönetici Tarafından Sıfırlandı",
+      time:Date.now()
+    });
+    location.reload();
   }
 });
-
-// Tab switch
-let activeChannel='chat';
-tabs.forEach(tab=>{
-  tab.onclick=()=>{
-    tabs.forEach(t=>t.classList.remove('active'));
-    tab.classList.add('active');
-    activeChannel=tab.dataset.channel;
-    if(activeChannel==='chat'){chatChannelDiv.style.display='flex';announceChannelDiv.style.display='none';}
-    else{chatChannelDiv.style.display='none';announceChannelDiv.style.display='flex';}
-  }
-});
-
-if(currentNick){loginNick(currentNick,currentPass);}else{loginDiv.style.display='flex';}
 </script>
+</head>
+<body>
+<div id="channels"></div>
+<div id="chat-container">
+  <div id="messages"></div>
+  <div id="input-container">
+    <input type="text" id="msg" placeholder="Mesaj yaz..."/>
+    <input type="file" id="file"/>
+    <button onclick="fileInput.click()">Foto</button>
+    <button id="send">Gönder</button>
+  </div>
+</div>
+<div id="login">
+  <h2>Nick Gir</h2>
+  <input type="text" id="nick" placeholder="Nick"/>
+  <button id="login-btn">Giriş</button>
+  <button id="skip">Oto Nick</button>
+</div>
 </body>
 </html>
