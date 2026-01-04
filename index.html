@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>CurseStudio | Ultra V13</title>
+    <title>CurseStudio | Ultimate V14</title>
     <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
     <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-database.js"></script>
     <style>
@@ -11,73 +11,97 @@
         * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Whitney', 'Segoe UI', sans-serif; }
         body { background: var(--bg); color: #dcddde; height: 100vh; display: flex; overflow: hidden; }
         
+        /* Layout */
         #sidebar, #member-list { width: 240px; background: var(--dark); display: none; flex-direction: column; border: 1px solid #222; }
         #main { flex: 1; display: none; flex-direction: column; position: relative; }
-        
         #messages { flex: 1; overflow-y: auto; padding: 20px 0; }
+        
+        /* Mesaj ve Araçlar */
         .msg { padding: 8px 20px; position: relative; }
         .msg:hover { background: rgba(0,0,0,0.05); }
-        
-        /* Update Button Style */
-        #update-notif { 
-            display: none; width: 100%; padding: 10px; background: #9b59b6; 
-            color: white; border: none; border-radius: 6px; cursor: pointer; 
-            font-weight: bold; font-size: 13px; margin-bottom: 10px;
-            animation: pulse 2s infinite; 
-        }
-        @keyframes pulse { 0% { opacity: 1; } 50% { opacity: 0.7; } 100% { opacity: 1; } }
-
         .msg-tools { position: absolute; right: 20px; top: 5px; display: none; gap: 10px; background: var(--v-dark); padding: 5px 10px; border-radius: 5px; border: 1px solid #444; z-index: 10; }
         .msg:hover .msg-tools { display: flex; }
         .tool-btn { cursor: pointer; font-size: 13px; opacity: 0.8; }
         .tool-btn:hover { opacity: 1; color: var(--accent); }
+        
+        /* Yanıtlama UI */
+        #reply-bar { display: none; background: #2f3136; padding: 8px 20px; border-bottom: 1px solid #444; align-items: center; justify-content: space-between; border-radius: 8px 8px 0 0; }
+        .reply-orig { border-left: 2px solid var(--accent); padding-left: 10px; font-size: 12px; opacity: 0.7; }
 
-        .nick { font-weight: 600; cursor: pointer; }
+        /* Yayın Görünümü */
+        .stream-preview { width: 280px; height: 150px; background: #000; border-radius: 8px; margin-top: 10px; border: 2px solid var(--accent); position: relative; cursor: pointer; display: flex; align-items: center; justify-content: center; }
+        .live-tag { position: absolute; top: 10px; left: 10px; background: var(--admin-red); color: white; padding: 2px 6px; border-radius: 4px; font-size: 10px; font-weight: bold; }
+        #stream-modal { display:none; position:fixed; inset:0; background:rgba(0,0,0,0.95); z-index:9999; flex-direction: column; align-items: center; justify-content: center; }
+        #full-video { width: 90%; max-height: 80vh; border-radius: 12px; }
+
+        /* Butonlar */
+        #update-notif { display: none; width: 100%; padding: 10px; background: #9b59b6; color: white; border: none; border-radius: 6px; cursor: pointer; font-weight: bold; margin-bottom: 10px; animation: pulse 2s infinite; }
+        @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.6; } }
+        .btn-side { width: 100%; padding: 10px; border-radius: 6px; border: none; font-weight: bold; cursor: pointer; margin-top: 5px; }
+        .btn-dnd.active { background: var(--admin-red); color: white; }
+
+        /* Genel */
+        .nick { font-weight: 600; }
         .nick.kurucu { color: var(--admin-red); }
         .nick.admin-volar { color: var(--admin-blue); }
         .badge { font-size: 10px; padding: 2px 6px; border-radius: 4px; color: white; margin-right: 5px; font-weight: bold; }
-        
-        .input-wrap { padding: 20px; background: var(--bg); }
+        #auth-overlay { position: fixed; inset: 0; background: #2f3136; display: flex; align-items: center; justify-content: center; z-index: 3000; }
+        .input-wrap { padding: 20px; }
         .inner-input { background: #40444b; border-radius: 8px; padding: 12px; display: flex; align-items: center; gap: 10px; }
         #chat-in { background: transparent; border: none; color: white; flex: 1; outline: none; }
-        
-        #auth-overlay { position: fixed; inset: 0; background: #2f3136; display: flex; align-items: center; justify-content: center; z-index: 3000; }
-        .auth-box { text-align: center; background: var(--v-dark); padding: 40px; border-radius: 12px; }
     </style>
 </head>
 <body>
 
-<div id="auth-overlay"><div class="auth-box"><h2>CurseStudio</h2><input type="text" id="user-nick" placeholder="Kullanıcı adınız..." style="width:300px; padding:14px; background:#36393f; border:1px solid #111; color:white; border-radius:5px; margin-bottom:20px;"><br><button onclick="login()" style="width:300px; padding:15px; background:var(--accent); color:white; border:none; border-radius:6px; font-weight:bold; cursor:pointer;">GİRİŞ YAP</button></div></div>
+<div id="auth-overlay"><div class="auth-box" style="text-align:center; background:var(--v-dark); padding:40px; border-radius:12px;">
+    <h2 style="color:white; margin-bottom:20px">CurseStudio</h2>
+    <input type="text" id="user-nick" placeholder="Kullanıcı adı..." style="width:300px; padding:14px; background:#36393f; border:1px solid #111; color:white; border-radius:5px; margin-bottom:20px;"><br>
+    <button onclick="login()" style="width:300px; padding:15px; background:var(--accent); color:white; border:none; border-radius:6px; font-weight:bold; cursor:pointer;">GİRİŞ YAP</button>
+</div></div>
 
 <div id="sidebar">
     <div style="padding:15px; font-weight:bold; border-bottom:1px solid #222">CurseStudio</div>
-    <div id="chan-list" style="flex:1"></div>
+    <div id="chan-list" style="flex:1; padding:10px"></div>
     <div style="padding:15px; border-top:1px solid #222">
         <button id="update-notif" onclick="location.reload()">✨ Yeni Sürüm Mevcut! Yükle</button>
-        <button onclick="startSharing()" style="width:100%; padding:10px; background:var(--accent); color:white; border:none; border-radius:6px; cursor:pointer; font-weight:bold">📺 Ekranı Paylaş</button>
+        <button class="btn-side" style="background:var(--accent); color:white" onclick="startSharing()">📺 Ekranı Paylaş</button>
+        <button id="dnd-btn" class="btn-side" style="background:#444; color:white" onclick="toggleDND()">🔔 Bildirimler: AÇIK</button>
+        <button class="btn-side" style="background:transparent; border:1px solid var(--admin-red); color:var(--admin-red); margin-top:15px" onclick="location.reload()">🚪 Oturumu Kapat</button>
     </div>
 </div>
 
 <div id="main">
     <div id="messages"></div>
+    <div id="alert-zone" style="padding-left:20px"></div>
     <div class="input-wrap">
-        <div class="inner-input">
-            <label for="f-up" style="cursor:pointer; color:gray">+</label>
+        <div id="reply-bar">
+            <div id="reply-text" class="reply-orig"></div>
+            <span onclick="cancelReply()" style="cursor:pointer; color:var(--admin-red)">✕</span>
+        </div>
+        <div class="inner-input" id="drop-area">
+            <label for="f-up" style="cursor:pointer; color:gray; font-size:20px">+</label>
             <input type="file" id="f-up" style="display:none" onchange="handleFile(this.files[0])">
-            <input type="text" id="chat-in" placeholder="Mesaj yaz..." onkeypress="if(event.key==='Enter') handleSend()">
+            <input type="text" id="chat-in" placeholder="Mesaj gönder..." onkeypress="if(event.key==='Enter') handleSend()">
         </div>
     </div>
 </div>
 
 <div id="member-list">
-    <div style="padding:20px; font-size:12px; font-weight:bold; color:gray">AKTİF ÜYELER</div>
+    <div style="padding:20px; font-size:12px; font-weight:bold; color:gray; text-transform:uppercase">Çevrimiçi Üyeler</div>
     <div id="members-ui" style="padding:0 10px"></div>
 </div>
 
+<div id="stream-modal">
+    <h3 id="modal-owner" style="color:white; margin-bottom:15px">Canlı Yayın</h3>
+    <video id="full-video" autoplay></video>
+    <button onclick="closeModal()" style="margin-top:20px; padding:10px 30px; background:var(--admin-red); color:white; border:none; border-radius:6px; cursor:pointer; font-weight:bold">KAPAT</button>
+</div>
+
 <script>
-// --- VERSİYON AYARI ---
-const CURRENT_VERSION = "1.0"; // Her kod değiştirdiğinde burayı artır (örn: 1.1)
-// ----------------------
+// --- AYARLAR ---
+const CURRENT_VERSION = "1.0"; 
+const KURUCU = "The1545", ADMIN = "Volar";
+// ---------------
 
 const firebaseConfig = {
     apiKey: "AIzaSyCnoxoPsUFx3f71SAcV7vd5ex_ZUmOk3e0",
@@ -91,105 +115,130 @@ const firebaseConfig = {
 firebase.initializeApp(firebaseConfig);
 const db = firebase.database();
 
-let myNick = "", activeC = "genel";
-const KURUCU = "The1545", ADMIN = "Volar";
+let myNick = "", activeC = "genel", isDND = false, replyTo = null;
 
-function login() {
+async function login() {
     myNick = document.getElementById('user-nick').value.trim();
     if(!myNick) return;
-    document.getElementById('auth-overlay').style.display = "none";
-    document.getElementById('sidebar').style.display = "flex";
-    document.getElementById('main').style.display = "flex";
-    document.getElementById('member-list').style.display = "flex";
-    
-    db.ref('presence/' + myNick).set(true);
-    db.ref('presence/' + myNick).onDisconnect().remove();
-    
-    // Versiyon Kontrolünü Başlat
-    checkVersion();
-    initChat();
+
+    db.ref('bans/' + myNick).once('value', s => {
+        if(s.exists()) return alert("Banlısınız!");
+        if(Notification.permission !== "granted") Notification.requestPermission();
+
+        document.getElementById('auth-overlay').style.display = "none";
+        document.querySelectorAll('#sidebar, #main, #member-list').forEach(el => el.style.display = "flex");
+
+        db.ref('presence/' + myNick).set(true);
+        db.ref('presence/' + myNick).onDisconnect().remove();
+        
+        initApp();
+    });
 }
 
-function checkVersion() {
-    // Veritabanındaki versiyonu dinle
-    db.ref('app_settings/version').on('value', snap => {
-        const cloudVersion = snap.val();
-        if (cloudVersion && cloudVersion !== CURRENT_VERSION) {
-            document.getElementById('update-notif').style.display = "block";
-        } else {
-            document.getElementById('update-notif').style.display = "none";
-        }
+function initApp() {
+    // Versiyon Kontrol
+    db.ref('app_settings/version').on('value', s => {
+        if(s.val() && s.val() !== CURRENT_VERSION) document.getElementById('update-notif').style.display = "block";
+    });
+    if(myNick === KURUCU) db.ref('app_settings/version').set(CURRENT_VERSION);
+
+    // Mesajları Dinle
+    db.ref('msgs/' + activeC).on('value', snap => {
+        const box = document.getElementById('messages');
+        box.innerHTML = "";
+        snap.forEach(child => renderMsg(child.val(), child.key));
+        box.scrollTop = box.scrollHeight;
     });
 
-    // Eğer Kurucu isen, mevcut versiyonu veritabanına işle
-    if (myNick === KURUCU) {
-        db.ref('app_settings/version').set(CURRENT_VERSION);
+    // Üyeleri Dinle
+    db.ref('presence').on('value', s => {
+        const ui = document.getElementById('members-ui'); ui.innerHTML = "";
+        Object.keys(s.val() || {}).forEach(u => {
+            ui.innerHTML += `<div style="margin-bottom:8px"><span class="nick ${u===KURUCU?'kurucu':u===ADMIN?'admin-volar':''}">${u}</span></div>`;
+        });
+    });
+
+    // Ban/Mute Takibi
+    db.ref('bans/' + myNick).on('value', s => { if(s.exists()) location.reload(); });
+
+    // Dosya/Yapıştır
+    window.onpaste = (e) => { const f = e.clipboardData.files[0]; if(f) handleFile(f); };
+    document.getElementById('drop-area').ondrop = (e) => { e.preventDefault(); handleFile(e.dataTransfer.files[0]); };
+}
+
+function renderMsg(d, id) {
+    const box = document.getElementById('messages');
+    const div = document.createElement('div');
+    div.className = "msg";
+    const isK = d.n === KURUCU, isA = d.n === ADMIN;
+    const isStaff = (myNick === KURUCU || myNick === ADMIN);
+
+    let content = d.m ? `<div>${d.m}</div>` : '';
+    if(d.img) content += `<img src="${d.img}" style="max-width:300px; border-radius:8px; margin-top:8px; cursor:pointer" onclick="window.open(this.src)">`;
+    if(d.file) content += `<a href="${d.file}" download="${d.fileName}" style="color:var(--accent); display:block; margin-top:8px">📄 ${d.fileName}</a>`;
+    if(d.type === 'stream') content += `<div class="stream-preview" onclick="openFullStream('${d.n}')"><div class="live-tag">CANLI</div><div style="color:white">📺 ${d.n} Yayınını İzle</div></div>`;
+
+    let replyHtml = d.reply ? `<div class="reply-orig"><b>@${d.reply.n}:</b> ${d.reply.m}</div>` : '';
+
+    div.innerHTML = `
+        ${replyHtml}
+        <div style="display:flex; justify-content:space-between">
+            <div>
+                ${isK?'<span class="badge" style="background:var(--admin-red)">KURUCU</span>':isA?'<span class="badge" style="background:var(--admin-blue)">YÖNETİCİ</span>':''}
+                <span class="nick ${isK?'kurucu':isA?'admin-volar':''}">${d.n}</span>
+                <span style="color:gray; font-size:10px">${new Date(d.t).toLocaleTimeString()}</span>
+                ${content}
+            </div>
+            <div class="msg-tools">
+                <span class="tool-btn" onclick="startReply('${d.n}', '${(d.m||"Dosya").replace(/'/g,"")}')">↩ Yanıtla</span>
+                ${(d.n === myNick || isStaff) ? `<span class="tool-btn" style="color:var(--admin-red)" onclick="deleteMsg('${id}')">🗑 Sil</span>` : ''}
+            </div>
+        </div>`;
+    box.appendChild(div);
+
+    // Bildirim
+    if(!isDND && d.n !== myNick && d.t > Date.now() - 2000) {
+        new Notification("CurseStudio: " + d.n, { body: d.m || "Dosya gönderdi." });
     }
 }
 
 function handleSend() {
     const el = document.getElementById('chat-in');
-    const m = el.value.trim();
-    if(!m) return;
-    db.ref('msgs/' + activeC).push({ n: myNick, m: m, t: Date.now() });
-    el.value = "";
-}
+    const val = el.value.trim();
+    if(!val) return;
 
-function initChat() {
-    db.ref('msgs/' + activeC).on('value', snap => {
-        const box = document.getElementById('messages');
-        box.innerHTML = "";
-        snap.forEach(child => {
-            const d = child.val();
-            const id = child.key;
-            const div = document.createElement('div');
-            div.className = "msg";
-            const isK = d.n === KURUCU, isA = d.n === ADMIN;
-            const isStaff = (myNick === KURUCU || myNick === ADMIN);
-            
-            div.innerHTML = `
-                <div style="display:flex; justify-content:space-between">
-                    <div>
-                        ${isK?'<span class="badge" style="background:var(--admin-red)">KURUCU</span>':isA?'<span class="badge" style="background:var(--admin-blue)">YÖNETİCİ</span>':''}
-                        <span class="nick ${isK?'kurucu':isA?'admin-volar':''}">${d.n}</span>
-                        <span style="color:gray; font-size:10px">${new Date(d.t).toLocaleTimeString()}</span>
-                        <div style="margin-top:4px">${d.m}</div>
-                    </div>
-                    <div class="msg-tools">
-                        ${(d.n === myNick || isStaff) ? `<span class="tool-btn" style="color:red" onclick="deleteMsg('${id}')">🗑 Sil</span>` : ''}
-                    </div>
-                </div>`;
-            box.appendChild(div);
-        });
-        box.scrollTop = box.scrollHeight;
-    });
+    if(val.startsWith('/')) {
+        const p = val.split(' '); const cmd = p[0]; const target = p[1];
+        if(target === KURUCU) { showAlert("Dokunulmaz kullanıcı!"); el.value = ""; return; }
+        if(myNick === KURUCU || myNick === ADMIN) {
+            if(cmd === '/ban') db.ref('bans/' + target).set(true);
+            if(cmd === '/mute') db.ref('mutes/' + target).set(true);
+            if(cmd === '/unmute') db.ref('mutes/' + target).remove();
+            if(cmd === '/clear') db.ref('msgs/' + activeC).remove();
+        }
+        el.value = ""; return;
+    }
 
-    db.ref('presence').on('value', s => {
-        const ui = document.getElementById('members-ui'); ui.innerHTML = "";
-        Object.keys(s.val() || {}).forEach(u => {
-            const isK = u === KURUCU, isA = u === ADMIN;
-            ui.innerHTML += `<div style="margin-bottom:8px"><span class="nick ${isK?'kurucu':isA?'admin-volar':''}">${u}</span></div>`;
-        });
+    db.ref('mutes/' + myNick).once('value', s => {
+        if(s.exists()) { showAlert("Şuanda mutelisin!"); el.value = ""; }
+        else {
+            const payload = { n: myNick, m: val, t: Date.now() };
+            if(replyTo) { payload.reply = replyTo; cancelReply(); }
+            db.ref('msgs/' + activeC).push(payload);
+            el.value = "";
+        }
     });
 }
 
-function deleteMsg(id) {
-    if(confirm("Silinsin mi?")) db.ref('msgs/' + activeC + '/' + id).remove();
-}
-
-function handleFile(f) {
-    if(!f) return;
-    const r = new FileReader();
-    r.onload = e => db.ref('msgs/' + activeC).push({ n: myNick, m: "📷 Fotoğraf gönderildi", img: e.target.result, t: Date.now() });
-    r.readAsDataURL(f);
-}
-
-async function startSharing() {
-    try {
-        await navigator.mediaDevices.getDisplayMedia({video:true});
-        db.ref('msgs/' + activeC).push({n: myNick, m: "📺 Ekran paylaşımı başlattı!", t: Date.now()});
-    } catch(e) {}
-}
+function startReply(n, m) { replyTo = { n, m }; document.getElementById('reply-bar').style.display = "flex"; document.getElementById('reply-text').innerText = "@" + n + ": " + m; document.getElementById('chat-in').focus(); }
+function cancelReply() { replyTo = null; document.getElementById('reply-bar').style.display = "none"; }
+function deleteMsg(id) { if(confirm("Silinsin mi?")) db.ref('msgs/' + activeC + '/' + id).remove(); }
+function toggleDND() { isDND = !isDND; const b = document.getElementById('dnd-btn'); b.classList.toggle('active'); b.innerText = isDND ? "🔇 Bildirimler: KAPALI" : "🔔 Bildirimler: AÇIK"; }
+function handleFile(f) { if(!f) return; const r = new FileReader(); r.onload = e => db.ref('msgs/' + activeC).push({ n: myNick, t: Date.now(), [f.type.startsWith('image/')?'img':'file']: e.target.result, fileName: f.name }); r.readAsDataURL(f); }
+async function startSharing() { try { await navigator.mediaDevices.getDisplayMedia({video:true}); db.ref('msgs/' + activeC).push({n: myNick, type:'stream', t: Date.now()}); } catch(e) {} }
+function openFullStream(owner) { document.getElementById('stream-modal').style.display = "flex"; document.getElementById('modal-owner').innerText = owner + " Yayını"; }
+function closeModal() { document.getElementById('stream-modal').style.display = "none"; }
+function showAlert(t) { const z = document.getElementById('alert-zone'); z.innerHTML = `<div style="color:red; font-size:12px; font-weight:bold">${t}</div>`; setTimeout(() => z.innerHTML = "", 3000); }
 </script>
 </body>
 </html>
