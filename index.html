@@ -3,92 +3,75 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>CurseStudio | Professional Control</title>
+    <title>CurseStudio | Ultra V12</title>
     <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
     <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-database.js"></script>
     <style>
-        :root { 
-            --bg: #36393f; --dark: #2f3136; --v-dark: #202225; --accent: #5865f2; 
-            --admin-red: #ff4747; --admin-blue: #00d2ff; --bot-green: #2ecc71;
-            --text-muted: #b9bbbe; --success: #3ba55c;
-        }
+        :root { --bg: #36393f; --dark: #2f3136; --v-dark: #202225; --accent: #5865f2; --admin-red: #ff4747; --admin-blue: #00d2ff; }
         * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Whitney', 'Segoe UI', sans-serif; }
         body { background: var(--bg); color: #dcddde; height: 100vh; display: flex; overflow: hidden; }
+        
+        #sidebar, #member-list { width: 240px; background: var(--dark); display: none; flex-direction: column; border: 1px solid #222; }
+        #main { flex: 1; display: none; flex-direction: column; position: relative; }
+        
+        #messages { flex: 1; overflow-y: auto; padding: 20px 0; }
+        .msg { padding: 8px 20px; position: relative; group; }
+        .msg:hover { background: rgba(0,0,0,0.05); }
+        
+        /* Message Actions */
+        .msg-tools { position: absolute; right: 20px; top: 5px; display: none; gap: 10px; background: var(--v-dark); padding: 5px 10px; border-radius: 5px; border: 1px solid #444; }
+        .msg:hover .msg-tools { display: flex; }
+        .tool-btn { cursor: pointer; font-size: 14px; opacity: 0.7; }
+        .tool-btn:hover { opacity: 1; color: var(--accent); }
+        .tool-del:hover { color: var(--admin-red) !important; }
 
-        @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
-        .msg { animation: fadeIn 0.2s ease; border-bottom: 1px solid rgba(255,255,255,0.02); padding: 10px 30px; }
+        /* Reply UI */
+        #reply-bar { display: none; background: #2f3136; padding: 10px 20px; border-radius: 8px 8px 0 0; border-bottom: 1px solid #444; align-items: center; justify-content: space-between; }
+        .reply-content { font-size: 12px; color: #b9bbbe; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
+        .reply-orig { border-left: 2px solid #4f545c; padding-left: 10px; margin-bottom: 5px; font-size: 13px; opacity: 0.8; }
 
+        /* General Styles */
+        .nick { font-weight: 600; cursor: pointer; }
+        .nick.kurucu { color: var(--admin-red); }
+        .nick.admin-volar { color: var(--admin-blue); }
+        .badge { font-size: 10px; padding: 2px 6px; border-radius: 4px; color: white; margin-right: 5px; font-weight: bold; }
+        .input-wrap { padding: 20px; background: var(--bg); }
+        .inner-input { background: #40444b; border-radius: 8px; padding: 12px; display: flex; align-items: center; gap: 10px; }
+        #chat-in { background: transparent; border: none; color: white; flex: 1; outline: none; }
+        
         #auth-overlay { position: fixed; inset: 0; background: #2f3136; display: flex; align-items: center; justify-content: center; z-index: 3000; }
         .auth-box { text-align: center; background: var(--v-dark); padding: 40px; border-radius: 12px; }
         .auth-box input { width: 300px; padding: 14px; background: #36393f; border: 1px solid #111; color: white; border-radius: 5px; margin-bottom: 20px; outline: none; }
-
-        #sidebar { width: 280px; background: var(--dark); border-right: 1px solid var(--v-dark); display: none; flex-direction: column; }
-        .side-header { padding: 18px; font-weight: bold; color: white; border-bottom: 1px solid #222; }
-        .channel-list { flex: 1; overflow-y: auto; padding: 15px 0; }
-        .channel-btn { padding: 12px 15px; margin: 2px 10px; cursor: pointer; color: #8e9297; border-radius: 6px; display: flex; justify-content: space-between; }
-        .channel-btn.active { background: #4f545c; color: #fff; }
-
-        #main { flex: 1; display: none; flex-direction: column; background: var(--bg); }
-        #messages { flex: 1; overflow-y: auto; padding: 20px 0; }
-        .nick { font-weight: 600; margin-right: 10px; }
-        .nick.kurucu { color: var(--admin-red); }
-        .nick.admin-volar { color: var(--admin-blue); }
-        .badge { font-size: 10px; padding: 2px 8px; border-radius: 4px; color: white; margin-right: 8px; font-weight: 800; }
-
-        .input-wrap { padding: 0 20px 20px 20px; }
-        .inner-input { background: #40444b; border-radius: 10px; padding: 14px 18px; display: flex; align-items: center; gap: 15px; border: 2px dashed transparent; transition: 0.2s; }
-        .inner-input.dragover { border-color: var(--accent); background: #484c54; }
-        #chat-in { background: transparent; border: none; color: white; flex: 1; outline: none; font-size: 15px; }
-        
-        .chat-img { max-width: 400px; border-radius: 8px; margin-top: 10px; cursor: pointer; display: block; }
-        .file-link { display: inline-flex; align-items: center; background: var(--v-dark); padding: 10px; border-radius: 8px; color: var(--accent); text-decoration: none; margin-top: 10px; }
-
-        .stream-card { background: var(--v-dark); border-radius: 8px; padding: 15px; margin-top: 10px; border-left: 4px solid var(--accent); display: inline-block; }
-        .btn-action { background: var(--accent); color: white; border: none; padding: 6px 12px; border-radius: 4px; cursor: pointer; font-weight: bold; }
-
-        #fs-btn, #dnd-btn { position: fixed; right: 25px; width: 45px; height: 45px; border-radius: 50%; cursor: pointer; z-index: 4000; border: none; color: white; background: var(--accent); }
-        #fs-btn { bottom: 85px; }
-        #dnd-btn { bottom: 25px; background: #444; }
-        #dnd-btn.active { background: var(--admin-red); }
-        
-        .error-local { color: var(--admin-red); font-size: 13px; margin-top: 5px; font-weight: bold; animation: fadeIn 0.2s; }
     </style>
 </head>
-<body ondragover="event.preventDefault()" ondrop="event.preventDefault()">
+<body>
 
-<button id="fs-btn" onclick="toggleFullScreen()">⛶</button>
-<button id="dnd-btn" onclick="toggleDND()">🔔</button>
-
-<div id="auth-overlay">
-    <div class="auth-box">
-        <h2>CurseStudio</h2>
-        <input type="text" id="user-nick" placeholder="Kullanıcı adınız..." maxlength="15">
-        <br>
-        <button onclick="login()" style="width:300px; padding:15px; background:var(--accent); color:white; border:none; border-radius:6px; font-weight:bold; cursor:pointer;">BAĞLAN</button>
-    </div>
-</div>
+<div id="auth-overlay"><div class="auth-box"><h2>CurseStudio</h2><input type="text" id="user-nick" placeholder="Kullanıcı adınız..."><br><button onclick="login()" style="width:300px; padding:15px; background:var(--accent); color:white; border:none; border-radius:6px; font-weight:bold; cursor:pointer;">GİRİŞ YAP</button></div></div>
 
 <div id="sidebar">
-    <div class="side-header">
-        <span id="server-name-display">CurseStudio</span>
-    </div>
-    <div class="channel-list" id="chan-list"></div>
-    <div style="padding:20px; border-top:1px solid #222;">
-        <button onclick="startScreenShare()" style="width:100%; padding:10px; background:var(--accent); color:white; border:none; border-radius:6px; cursor:pointer; font-weight:bold; margin-bottom:10px">📺 Ekranı Paylaş</button>
-        <button onclick="location.reload()" style="width:100%; padding:10px; background:transparent; border:1px solid #ed4245; color:#ed4245; border-radius:6px; cursor:pointer; font-weight:bold;">OTURUMU KAPAT</button>
-    </div>
+    <div style="padding:15px; font-weight:bold;">CurseStudio</div>
+    <div id="chan-list" style="flex:1"></div>
+    <div style="padding:15px;"><button onclick="startSharing()" style="width:100%; padding:10px; background:var(--accent); color:white; border:none; border-radius:6px; cursor:pointer">📺 Yayını Başlat</button></div>
 </div>
 
 <div id="main">
     <div id="messages"></div>
-    <div id="local-alerts" style="padding-left:30px"></div>
     <div class="input-wrap">
-        <div class="inner-input" id="drop-zone">
-            <label for="f-up" style="cursor:pointer; color:#b9bbbe; font-size:24px" title="Dosya Yükle">+</label>
-            <input type="file" id="f-up" style="display:none" onchange="handleFileUpload(this.files[0])">
-            <input type="text" id="chat-in" placeholder="Bir mesaj yaz..." onkeypress="if(event.key==='Enter') processCommand()">
+        <div id="reply-bar">
+            <div class="reply-content" id="reply-text"></div>
+            <span onclick="cancelReply()" style="cursor:pointer; color:red">✕</span>
+        </div>
+        <div class="inner-input">
+            <label for="f-up" style="cursor:pointer; color:gray">+</label>
+            <input type="file" id="f-up" style="display:none" onchange="handleFile(this.files[0])">
+            <input type="text" id="chat-in" placeholder="Mesaj yaz..." onkeypress="if(event.key==='Enter') handleSend()">
         </div>
     </div>
+</div>
+
+<div id="member-list">
+    <div style="padding:20px; font-size:12px; font-weight:bold; color:gray">AKTİF ÜYELER</div>
+    <div id="members-ui" style="padding:0 10px"></div>
 </div>
 
 <script>
@@ -104,187 +87,113 @@ const firebaseConfig = {
 firebase.initializeApp(firebaseConfig);
 const db = firebase.database();
 
-let myNick = "", activeChan = "genel", chanData = {}, isDND = false, localStream = null;
+let myNick = "", activeC = "genel", replyTo = null;
 const KURUCU = "The1545", ADMIN = "Volar";
 
 function login() {
     myNick = document.getElementById('user-nick').value.trim();
     if(!myNick) return;
+    document.getElementById('auth-overlay').style.display = "none";
+    document.getElementById('sidebar').style.display = "flex";
+    document.getElementById('main').style.display = "flex";
+    document.getElementById('member-list').style.display = "flex";
+    
+    db.ref('presence/' + myNick).set(true);
+    db.ref('presence/' + myNick).onDisconnect().remove();
+    initChat();
+}
 
-    // Ban Kontrolü
-    db.ref('bans/' + myNick).once('value', s => {
-        if(s.exists()) {
-            alert("Bu sunucudan banlandınız!");
-            return;
-        }
-        document.getElementById('auth-overlay').style.display = "none";
-        document.getElementById('sidebar').style.display = "flex";
-        document.getElementById('main').style.display = "flex";
-        
-        db.ref('presence/' + myNick).set(true);
-        db.ref('presence/' + myNick).onDisconnect().remove();
-        
-        // Moderasyon Takibi (Kendi banlanırsa anında atar)
-        db.ref('bans/' + myNick).on('value', snap => { if(snap.exists()) location.reload(); });
+function handleSend() {
+    const el = document.getElementById('chat-in');
+    const m = el.value.trim();
+    if(!m) return;
+    
+    const payload = { n: myNick, m: m, t: Date.now() };
+    if(replyTo) { payload.reply = replyTo; cancelReply(); }
+    
+    db.ref('msgs/' + activeC).push(payload);
+    el.value = "";
+}
 
-        listenServerName();
-        loadChannels();
-        switchChan('genel');
-        initFileEvents();
+function initChat() {
+    // Mesaj Ekleme ve Silme Dinleyici
+    db.ref('msgs/' + activeC).on('value', snap => {
+        const box = document.getElementById('messages');
+        box.innerHTML = "";
+        snap.forEach(child => {
+            renderMsg(child.val(), child.key);
+        });
+        box.scrollTop = box.scrollHeight;
+    });
+
+    // Üye Listesi
+    db.ref('presence').on('value', s => {
+        const ui = document.getElementById('members-ui'); ui.innerHTML = "";
+        Object.keys(s.val() || {}).forEach(u => {
+            const isK = u === KURUCU, isA = u === ADMIN;
+            ui.innerHTML += `<div style="margin-bottom:8px"><span class="nick ${isK?'kurucu':isA?'admin-volar':''}">${u}</span></div>`;
+        });
     });
 }
 
-// Komut İşleme & Mute Kontrolü
-function processCommand() {
-    const input = document.getElementById('chat-in');
-    const msg = input.value.trim();
-    const isStaff = (myNick === KURUCU || myNick === ADMIN);
-
-    if(!msg) return;
-
-    // Komutlar
-    if(msg.startsWith('/') && isStaff) {
-        const parts = msg.split(' ');
-        const cmd = parts[0].toLowerCase();
-        const target = parts[1];
-
-        if(cmd === '/ban' && target) { db.ref('bans/' + target).set(true); sendSystem(`${target} banlandı.`); }
-        if(cmd === '/unban' && target) { db.ref('bans/' + target).remove(); sendSystem(`${target} banı açıldı.`); }
-        if(cmd === '/mute' && target) { db.ref('mutes/' + target).set(true); sendSystem(`${target} susturuldu.`); }
-        if(cmd === '/unmute' && target) { db.ref('mutes/' + target).remove(); sendSystem(`${target} susturulması açıldı.`); }
-        if(cmd === '/clear') { db.ref('msgs/' + activeChan).remove(); }
-        input.value = ""; return;
-    }
-
-    // Mute Kontrolü
-    db.ref('mutes/' + myNick).once('value', s => {
-        if(s.exists()) {
-            showLocalError("Şuanda mutelisin! Sadece mesajları okuyabilirsin.");
-            input.value = "";
-        } else {
-            send({m: msg});
-        }
-    });
-}
-
-function showLocalError(txt) {
-    const alertBox = document.getElementById('local-alerts');
-    alertBox.innerHTML = `<div class="error-local">${txt}</div>`;
-    setTimeout(() => alertBox.innerHTML = "", 3000);
-}
-
-function send(data) {
-    db.ref('msgs/' + activeChan).push({
-        n: myNick, t: Date.now(), ...data
-    });
-    document.getElementById('chat-in').value = "";
-}
-
-function sendSystem(txt) {
-    db.ref('msgs/' + activeChan).push({ n: "Sistem", m: "🛠️ " + txt, t: Date.now(), isBot: true });
-}
-
-function render(d) {
+function renderMsg(d, id) {
     const box = document.getElementById('messages');
     const div = document.createElement('div');
     div.className = "msg";
     const isK = d.n === KURUCU, isA = d.n === ADMIN;
-    
-    let body = d.m ? `<div style="margin-top:5px; word-break:break-all;">${d.m}</div>` : '';
-    if(d.img) body += `<img src="${d.img}" class="chat-img" onclick="window.open(this.src)">`;
-    if(d.file) body += `<a href="${d.file}" download="${d.fileName}" class="file-link">📄 ${d.fileName}</a>`;
-    if(d.type === 'stream') {
-        body += `<div class="stream-card"><b>📺 ${d.n} Yayın Açtı</b><br><button class="btn-action" onclick="alert('Yükleniyor...')">KATIL</button></div>`;
-    }
+    const isStaff = (myNick === KURUCU || myNick === ADMIN);
+    const isMine = (d.n === myNick);
+
+    let replyHtml = d.reply ? `<div class="reply-orig"><b>@${d.reply.n}:</b> ${d.reply.m}</div>` : '';
 
     div.innerHTML = `
-        <div>
-            ${isK?'<span class="badge" style="background:var(--admin-red)">KURUCU</span>':isA?'<span class="badge" style="background:var(--admin-blue)">YÖNETİCİ</span>':''}
-            <span class="nick ${isK?'kurucu':isA?'admin-volar':''}">${d.n}</span>
-            <span style="font-size:11px; color:var(--text-muted)">${new Date(d.t).toLocaleTimeString()}</span>
+        ${replyHtml}
+        <div style="display:flex; justify-content:space-between">
+            <div>
+                ${isK?'<span class="badge" style="background:var(--admin-red)">KURUCU</span>':isA?'<span class="badge" style="background:var(--admin-blue)">YÖNETİCİ</span>':''}
+                <span class="nick ${isK?'kurucu':isA?'admin-volar':''}">${d.n}</span>
+                <span style="color:gray; font-size:10px">${new Date(d.t).toLocaleTimeString()}</span>
+                <div style="margin-top:4px">${d.m}</div>
+            </div>
+            <div class="msg-tools">
+                <span class="tool-btn" onclick="startReply('${d.n}', '${d.m.replace(/'/g, "\\'")}')">↩ Yanıtla</span>
+                ${(isMine || isStaff) ? `<span class="tool-btn tool-del" onclick="deleteMsg('${id}')">🗑 Sil</span>` : ''}
+            </div>
         </div>
-        ${body}
     `;
     box.appendChild(div);
-    box.scrollTop = box.scrollHeight;
 }
 
-// DOSYA SİSTEMİ (Sürükle, Bırak, Yapıştır)
-function initFileEvents() {
-    const zone = document.getElementById('drop-zone');
-    
-    zone.ondragover = () => { zone.classList.add('dragover'); return false; };
-    zone.ondragleave = () => { zone.classList.remove('dragover'); return false; };
-    zone.ondrop = (e) => {
-        zone.classList.remove('dragover');
-        handleFileUpload(e.dataTransfer.files[0]);
-        return false;
-    };
-
-    window.onpaste = (e) => {
-        const item = e.clipboardData.items[0];
-        if (item.type.indexOf("image") !== -1 || item.kind === "file") {
-            handleFileUpload(item.getAsFile());
-        }
-    };
+function deleteMsg(id) {
+    if(confirm("Bu mesajı silmek istediğine emin misin?")) {
+        db.ref('msgs/' + activeC + '/' + id).remove();
+    }
 }
 
-function handleFileUpload(file) {
-    if(!file) return;
-    if(file.size > 3 * 1024 * 1024) return alert("Max 3MB!");
-
-    const reader = new FileReader();
-    reader.onload = e => {
-        const data = e.target.result;
-        if(file.type.startsWith('image/')) send({img: data});
-        else send({file: data, fileName: file.name});
-    };
-    reader.readAsDataURL(file);
+function startReply(n, m) {
+    replyTo = { n, m };
+    document.getElementById('reply-bar').style.display = "flex";
+    document.getElementById('reply-text').innerText = n + " kişisine yanıt veriliyor: " + m;
+    document.getElementById('chat-in').focus();
 }
 
-// EKRAN PAYLAŞIMI
-async function startScreenShare() {
-    const s = await db.ref('active_stream').once('value');
-    if(s.exists()) return alert("Zaten bir yayın var!");
+function cancelReply() {
+    replyTo = null;
+    document.getElementById('reply-bar').style.display = "none";
+}
 
+function handleFile(f) {
+    if(!f) return;
+    const r = new FileReader();
+    r.onload = e => db.ref('msgs/' + activeC).push({ n: myNick, img: e.target.result, t: Date.now() });
+    r.readAsDataURL(f);
+}
+
+async function startSharing() {
     try {
-        localStream = await navigator.mediaDevices.getDisplayMedia({ video: true });
-        db.ref('active_stream').set({ owner: myNick });
-        send({type: 'stream'});
-        localStream.getVideoTracks()[0].onended = () => {
-            db.ref('active_stream').remove();
-            sendSystem("Yayın sona erdi.");
-        };
+        const s = await navigator.mediaDevices.getDisplayMedia({video:true});
+        db.ref('msgs/' + activeC).push({n: myNick, m: "📺 Ekran paylaşımı başlattı!", t: Date.now()});
     } catch(e) {}
-}
-
-// DND & FS
-function toggleDND() { isDND = !isDND; document.getElementById('dnd-btn').classList.toggle('active'); }
-function toggleFullScreen() { if (!document.fullscreenElement) document.documentElement.requestFullscreen(); else document.exitFullscreen(); }
-
-// Klasik Yüklemeler
-function listenServerName() { db.ref('server_settings/name').on('value', s => { document.getElementById('server-name-display').innerText = s.val() || "CurseStudio"; }); }
-function loadChannels() { 
-    db.ref('channels').on('value', s => {
-        const list = document.getElementById('chan-list'); list.innerHTML = "";
-        chanData = s.val() || {genel:{type:'public'}};
-        Object.keys(chanData).forEach(id => {
-            const div = document.createElement('div');
-            div.className = `channel-btn ${activeChan === id ? 'active' : ''}`;
-            div.innerHTML = `# ${id}`;
-            div.onclick = () => switchChan(id);
-            list.appendChild(div);
-        });
-    });
-}
-function switchChan(id) {
-    db.ref('msgs/' + activeChan).off();
-    activeChan = id;
-    document.getElementById('messages').innerHTML = "";
-    db.ref('msgs/' + id).limitToLast(50).on('child_added', s => {
-        render(s.val());
-        if(!isDND && s.val().n !== myNick) new Notification("CurseStudio", {body: s.val().m});
-    });
 }
 </script>
 </body>
